@@ -1,11 +1,10 @@
-// Multi-provider text generation with automatic swap.
-// Order: OpenAI (preferred) → Gemini fallback → throw.
-// 우선순위는 PROVIDER_ORDER 로 조절 가능.
+// Single-provider text generation: OpenAI 만 사용.
+// 과거에 Gemini fallback 이 있었으나 Gemini 키 잦은 만료/leak detection 으로
+// OpenAI 단일로 고정. Gemini 코드는 보존만 하고 호출하지 않음.
 
-import { getGemini, hasGeminiKey, MODEL_FAST as GEMINI_FAST } from './gemini';
 import { getOpenAI, hasOpenAIKey, OPENAI_MODEL_FAST } from './openai';
 
-const PROVIDER_ORDER: Array<'openai' | 'gemini'> = ['openai', 'gemini'];
+const PROVIDER_ORDER: Array<'openai'> = ['openai'];
 
 export type GenerateOptions = {
   system: string;
@@ -18,15 +17,15 @@ export type GenerateOptions = {
 
 export type GenerateResult = {
   text: string;
-  provider: 'gemini' | 'openai';
+  provider: 'openai';
 };
 
-export function availableProviders(): Array<'openai' | 'gemini'> {
-  return PROVIDER_ORDER.filter((p) => (p === 'openai' ? hasOpenAIKey() : hasGeminiKey()));
+export function availableProviders(): Array<'openai'> {
+  return PROVIDER_ORDER.filter(() => hasOpenAIKey());
 }
 
 export function hasAnyLlmKey(): boolean {
-  return hasOpenAIKey() || hasGeminiKey();
+  return hasOpenAIKey();
 }
 
 async function callOpenAI(opts: GenerateOptions): Promise<string> {
@@ -46,34 +45,10 @@ async function callOpenAI(opts: GenerateOptions): Promise<string> {
   return res.choices?.[0]?.message?.content ?? '';
 }
 
-async function callGemini(opts: GenerateOptions): Promise<string> {
-  const ai = getGemini();
-  const model = ai.getGenerativeModel({
-    model: GEMINI_FAST,
-    systemInstruction: opts.system,
-    generationConfig: {
-      temperature: opts.temperature ?? 0.3,
-      maxOutputTokens: opts.maxTokens ?? 2048,
-      ...(opts.responseFormat === 'json' ? { responseMimeType: 'application/json' } : {}),
-    },
-  });
-  const res = await model.generateContent(opts.prompt);
-  return res.response.text();
-}
-
 export async function generateText(opts: GenerateOptions): Promise<GenerateResult> {
-  const errors: string[] = [];
-  for (const p of PROVIDER_ORDER) {
-    const has = p === 'openai' ? hasOpenAIKey() : hasGeminiKey();
-    if (!has) continue;
-    try {
-      const text = p === 'openai' ? await callOpenAI(opts) : await callGemini(opts);
-      return { text, provider: p };
-    } catch (err) {
-      errors.push(`${p}: ${err instanceof Error ? err.message : String(err)}`);
-    }
+  if (!hasOpenAIKey()) {
+    throw new Error('OPENAI_API_KEY not set');
   }
-  throw new Error(
-    `No LLM provider succeeded. Tried: ${errors.length > 0 ? errors.join(' | ') : 'none configured'}`,
-  );
+  const text = await callOpenAI(opts);
+  return { text, provider: 'openai' };
 }

@@ -1,9 +1,8 @@
-// Public-data chatbot. Tool-calling chat — OpenAI 우선, Gemini fallback.
-// 6 read-only tools 가 cached OrchestrationState 를 조회. 모든 수치 답변에
-// (HIRA / KOSIS / MediSim 분석) 출처 인용. 의학적 조언 거부.
+// Public-data chatbot. OpenAI tool-calling chat. 6 read-only tools 가
+// cached OrchestrationState 를 조회. 모든 수치 답변에 (HIRA / KOSIS /
+// MediSim 분석) 출처 인용. 의학적 조언 거부.
 
-import { SchemaType, type FunctionCall, type FunctionDeclaration } from '@google/generative-ai';
-import { getGemini, hasGeminiKey, MODEL_FAST as GEMINI_FAST } from '@/lib/llm/gemini';
+import { SchemaType, type FunctionDeclaration } from '@google/generative-ai';
 import { getOpenAI, hasOpenAIKey, OPENAI_MODEL_FAST } from '@/lib/llm/openai';
 import type { OrchestrationState, GuCoverage, PolicyOption } from '@/lib/state';
 
@@ -218,10 +217,10 @@ export async function* chat(
   history: ChatMessage[],
   state: OrchestrationState | undefined,
 ): AsyncGenerator<ChatStreamEvent, void, void> {
-  if (!hasOpenAIKey() && !hasGeminiKey()) {
+  if (!hasOpenAIKey()) {
     yield {
       type: 'error',
-      message: 'LLM API 키가 설정되어 있지 않아 챗봇을 사용할 수 없어요. 분석 결과를 우측 패널에서 직접 확인해주세요.',
+      message: 'OpenAI API 키가 설정되어 있지 않아 챗봇을 사용할 수 없어요. 분석 결과를 우측 패널에서 직접 확인해주세요.',
     };
     return;
   }
@@ -238,22 +237,10 @@ export async function* chat(
     return;
   }
 
-  // OpenAI 우선, 실패 시 Gemini.
-  if (hasOpenAIKey()) {
-    try {
-      yield* chatOpenAI(history, lastUser.content, state);
-      return;
-    } catch (err) {
-      yield { type: 'error', message: `OpenAI 오류 — Gemini 시도: ${msg(err)}` };
-    }
-  }
-  if (hasGeminiKey()) {
-    try {
-      yield* chatGemini(history, lastUser.content, state);
-      return;
-    } catch (err) {
-      yield { type: 'error', message: `Gemini 오류: ${msg(err)}` };
-    }
+  try {
+    yield* chatOpenAI(history, lastUser.content, state);
+  } catch (err) {
+    yield { type: 'error', message: `OpenAI 오류: ${msg(err)}` };
   }
 }
 
@@ -297,42 +284,6 @@ async function* chatOpenAI(
     }
   }
   yield { type: 'done', text: '응답 횟수 한도 도달' };
-}
-
-async function* chatGemini(
-  history: ChatMessage[],
-  userMsg: string,
-  state: OrchestrationState,
-): AsyncGenerator<ChatStreamEvent, void, void> {
-  const ai = getGemini();
-  const model = ai.getGenerativeModel({
-    model: GEMINI_FAST,
-    tools: [{ functionDeclarations: TOOL_DECLS }],
-    systemInstruction: SYSTEM_INSTRUCTION,
-    generationConfig: { temperature: 0.2, maxOutputTokens: 1024 },
-  });
-  const chatSession = model.startChat({
-    history: history.slice(0, -1).map((m) => ({
-      role: m.role === 'user' ? 'user' : 'model',
-      parts: [{ text: m.content }],
-    })),
-  });
-  let res = await chatSession.sendMessage(userMsg);
-  let safety = 0;
-  while (safety++ < 5) {
-    const calls = res.response.functionCalls() as FunctionCall[] | undefined;
-    if (!calls || calls.length === 0) break;
-    const replies = [] as Array<{ functionResponse: { name: string; response: object } }>;
-    for (const call of calls) {
-      const args = (call.args ?? {}) as Record<string, unknown>;
-      yield { type: 'tool', name: call.name, args };
-      const result = execTool(call.name, args, state);
-      yield { type: 'tool-result', name: call.name, resultPreview: JSON.stringify(result).slice(0, 200) };
-      replies.push({ functionResponse: { name: call.name, response: { result } } });
-    }
-    res = await chatSession.sendMessage(replies);
-  }
-  yield { type: 'done', text: res.response.text() };
 }
 
 function msg(err: unknown): string {

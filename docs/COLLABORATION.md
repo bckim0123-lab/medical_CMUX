@@ -32,6 +32,10 @@
 - [x] **B4. 자치구 Choropleth** — 서울 25개 자치구 polygon 위험도 색상 fill
 - [x] **C3. Critic Agent** — 5번째 에이전트, 정책 안에 대한 리스크 한 문장 + severity (high/mid/low)
 - [x] **시연 splash 화면** — `public/medi-splash.png` (분석 시작 전 hero overlay)
+- [x] **마커 sprite 아이콘** — 병원/의원/약국/보건소 4종 분리 (팀원 작업)
+- [x] **마커 클러스터링** — MapLibre cluster source (팀원 작업)
+- [x] **IntroOverlay 컴포넌트** — Gemini 인트로 화면 (팀원 작업)
+- [x] **발표자료** — `public/presentation.html` 10장 가로 슬라이드 + 데모 스크린샷 갤러리
 
 ### 📋 백로그 (팀원 픽업 가능)
 

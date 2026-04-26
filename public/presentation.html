@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="ko" data-direction="horizontal">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MediSim Orchestrator — 발표 자료</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --bg:          #0a0a10;
+      --bg-alt:      #0f0f18;
+      --bg-card:     rgba(255,255,255,0.05);
+      --accent:      #38bdf8;
+      --accent-dim:  rgba(56,189,248,0.14);
+      --accent-border: rgba(56,189,248,0.32);
+      --text-h:      #f0f0f8;
+      --text-body:   rgba(240,240,248,0.74);
+      --text-muted:  rgba(240,240,248,0.42);
+      --border:      rgba(255,255,255,0.08);
+      --border-mid:  rgba(255,255,255,0.14);
+      --font:        'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+      --fs-badge:    clamp(0.6rem, 0.9vw, 0.72rem);
+      --fs-sub:      clamp(0.88rem, 1.5vw, 1rem);
+      --fs-h2:       clamp(1.5rem, 3.5vw, 2.4rem);
+      --fs-h1:       clamp(2.2rem, 5.5vw, 4.2rem);
+      --max-w:       960px;
+      --gap:         clamp(1rem, 2.5vw, 2rem);
+      --pad:         clamp(2rem, 5vw, 4rem) clamp(1rem, 3vw, 2rem);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow-x: hidden; }
+    html {
+      scroll-snap-type: y mandatory;
+      scroll-behavior: smooth;
+    }
+    html[data-direction="horizontal"] {
+      scroll-snap-type: x mandatory;
+      overflow-y: hidden;
+      overflow-x: scroll;
+    }
+    html[data-direction="horizontal"] body {
+      display: flex;
+      flex-direction: row;
+      width: max-content;
+      height: 100vh;
+    }
+    html[data-direction="horizontal"] .slide {
+      min-width: 100vw;
+      min-height: 100vh;
+      scroll-snap-align: start;
+    }
+    html[data-direction="horizontal"] #nav-dots {
+      flex-direction: row;
+      right: auto;
+      top: auto;
+      bottom: 1.4rem;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text-h);
+      line-height: 1.65;
+    }
+    .slide {
+      position: relative;
+      z-index: 1;
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--pad);
+      scroll-snap-align: start;
+    }
+    .slide:nth-child(even) { background: var(--bg-alt); }
+    .slide-inner {
+      width: 100%;
+      max-width: var(--max-w);
+      max-height: calc(100dvh - 4rem);
+      overflow: hidden;
+    }
+    @media (max-height: 700px) {
+      :root {
+        --fs-h1: clamp(1.8rem, 4.5vw, 2.8rem);
+        --fs-h2: clamp(1.2rem, 3vw, 1.8rem);
+        --pad: clamp(1rem, 3vw, 2rem) clamp(0.8rem, 2vw, 1.5rem);
+      }
+    }
+    @media (max-height: 600px) {
+      :root { --pad: clamp(0.8rem, 2.5vw, 1.5rem); }
+      #nav-dots, #key-hint { display: none; }
+    }
+    @media (max-width: 640px) {
+      .layout-split, .demo-col { grid-template-columns: 1fr !important; }
+      #nav-dots { display: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.15s !important;
+      }
+      html { scroll-behavior: auto; }
+      .animate { opacity: 1 !important; transform: none !important; transition: none !important; }
+    }
+    .layout-center {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .layout-left {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: var(--gap);
+    }
+    .layout-split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--gap);
+      align-items: start;
+    }
+    .layout-full { display: block; }
+    .badge {
+      display: inline-block;
+      font-size: var(--fs-badge);
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      background: var(--accent-dim);
+      border: 1px solid var(--accent-border);
+      border-radius: 4px;
+      padding: 0.25em 0.75em;
+      margin-bottom: 1.2rem;
+    }
+    h1 {
+      font-size: var(--fs-h1);
+      font-weight: 700;
+      line-height: 1.12;
+      letter-spacing: -0.02em;
+      color: var(--text-h);
+      margin-bottom: 1rem;
+    }
+    h2 {
+      font-size: var(--fs-h2);
+      font-weight: 600;
+      line-height: 1.22;
+      letter-spacing: -0.015em;
+      color: var(--text-h);
+      margin-bottom: 0.8rem;
+    }
+    h3 {
+      font-size: clamp(0.95rem, 1.8vw, 1.1rem);
+      font-weight: 600;
+      color: var(--text-h);
+      margin-bottom: 0.4rem;
+    }
+    .subtitle {
+      font-size: var(--fs-sub);
+      color: var(--text-body);
+      max-width: 640px;
+      margin-bottom: 1.5rem;
+      line-height: 1.7;
+    }
+    p { color: var(--text-body); margin-bottom: 0.75rem; line-height: 1.7; }
+    p:last-child { margin-bottom: 0; }
+    .muted { color: var(--text-muted); font-size: 0.85em; }
+    .em    { color: var(--accent); }
+    code {
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 0.83em;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.15em 0.45em;
+      color: var(--text-h);
+    }
+    .divider { width: 40px; height: 2px; background: var(--accent); margin: 1.4rem 0; border-radius: 1px; }
+    .layout-center .divider { margin-left: auto; margin-right: auto; }
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: clamp(1rem, 2vw, 1.4rem) clamp(1rem, 2vw, 1.6rem);
+    }
+    .card-accent { border-left: 3px solid var(--accent); border-radius: 0 12px 12px 0; }
+    .list { list-style: none; display: flex; flex-direction: column; gap: clamp(0.4rem, 1vw, 0.65rem); color: var(--text-body); }
+    .list li { display: flex; gap: 0.75rem; align-items: flex-start; font-size: var(--fs-sub); line-height: 1.55; }
+    .list li::before { content: ''; width: 6px; height: 6px; min-width: 6px; border-radius: 50%; background: var(--accent); margin-top: 0.52em; }
+    .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 130px), 1fr)); gap: clamp(0.6rem, 1.5vw, 1rem); }
+    .stat-item { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: clamp(0.8rem, 1.5vw, 1.2rem) clamp(0.8rem, 1.5vw, 1.4rem); text-align: center; }
+    .stat-num { font-size: clamp(1.6rem, 3.5vw, 2.2rem); font-weight: 700; color: var(--accent); line-height: 1; margin-bottom: 0.4rem; }
+    .stat-label { font-size: clamp(0.65rem, 1vw, 0.78rem); color: var(--text-muted); letter-spacing: 0.04em; }
+    .step-flow { display: flex; flex-direction: column; }
+    .step-item { display: flex; gap: 1rem; align-items: flex-start; position: relative; }
+    .step-item:not(:last-child)::after { content: ''; position: absolute; left: 15px; top: 34px; bottom: -10px; width: 1px; background: var(--border-mid); }
+    .step-num {
+      width: 32px; height: 32px; min-width: 32px; border-radius: 50%;
+      background: var(--accent-dim); border: 1px solid var(--accent-border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.76rem; font-weight: 700; color: var(--accent);
+      margin-top: 0.1rem; z-index: 1;
+    }
+    .step-body { padding-bottom: clamp(0.7rem, 1.5vh, 1.2rem); }
+    .step-item:last-child .step-body { padding-bottom: 0; }
+    .step-body h3 { margin-bottom: 0.2rem; }
+    .step-body p { font-size: clamp(0.78rem, 1.3vw, 0.92rem); margin-bottom: 0; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(0.8rem, 2vw, 1.2rem); }
+    @media (max-width: 800px) { .grid-3 { grid-template-columns: 1fr; } }
+    .demo-wrap {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border-mid);
+      background: var(--bg-card);
+      max-height: min(58vh, 480px);
+    }
+    .demo-iframe { width: 100%; height: 100%; border: none; display: block; }
+    .demo-link-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-top: 1rem;
+      padding: 0.55em 1.2em;
+      background: var(--accent-dim);
+      border: 1px solid var(--accent-border);
+      border-radius: 8px;
+      font-size: clamp(0.78rem, 1.3vw, 0.92rem);
+      font-weight: 600;
+      color: var(--accent);
+      text-decoration: none;
+      transition: background 0.18s, border-color 0.18s;
+    }
+    .demo-link-btn:hover { background: rgba(56,189,248,0.22); border-color: var(--accent); }
+    .animate { opacity: 0; transform: translateY(24px); transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+    .animate.visible { opacity: 1; transform: none; }
+    .animate-delay-1 { transition-delay: 0.1s; }
+    .animate-delay-2 { transition-delay: 0.2s; }
+    .animate-delay-3 { transition-delay: 0.3s; }
+    .animate-delay-4 { transition-delay: 0.4s; }
+    #nav-dots { position: fixed; right: 1.4rem; top: 50%; transform: translateY(-50%); z-index: 100; display: flex; flex-direction: column; gap: 7px; }
+    .dot { width: 6px; height: 6px; border-radius: 3px; background: var(--border-mid); border: none; cursor: pointer; transition: all 0.25s ease; padding: 0; }
+    .dot.active { background: var(--accent); height: 20px; }
+    html[data-direction="horizontal"] .dot.active { height: 6px; width: 20px; }
+    #progress { position: fixed; top: 0; left: 0; height: 2px; background: var(--accent); z-index: 200; transition: width 0.3s ease; }
+    #slide-counter { position: fixed; bottom: 1.4rem; right: 1.4rem; z-index: 100; font-size: 0.73rem; color: var(--text-muted); font-weight: 500; letter-spacing: 0.06em; }
+    html[data-direction="horizontal"] #slide-counter { bottom: auto; top: 1.4rem; right: 1.4rem; }
+    #key-hint { position: fixed; bottom: 1.4rem; left: 50%; transform: translateX(-50%); z-index: 100; font-size: 0.73rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.4rem; transition: opacity 0.8s ease; white-space: nowrap; }
+    #key-hint kbd { display: inline-block; background: var(--bg-card); border: 1px solid var(--border-mid); border-radius: 4px; padding: 0.1em 0.5em; font-family: var(--font); font-size: 0.68rem; color: var(--text-muted); }
+    .nav-btn { width: 6px; height: 14px; border-radius: 3px; border: none; background: var(--border-mid); cursor: pointer; padding: 0; transition: all 0.2s ease; }
+    .nav-btn:hover { background: var(--accent); height: 18px; }
+    .nav-btn:disabled { opacity: 0.15; cursor: default; }
+    html[data-direction="horizontal"] .nav-btn { width: 14px; height: 6px; }
+    html[data-direction="horizontal"] .nav-btn:hover { width: 18px; height: 6px; }
+    .agent-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; }
+    .chip { display: inline-block; padding: 0.25em 0.75em; background: var(--bg-card); border: 1px solid var(--border); border-radius: 999px; font-size: clamp(0.7rem, 1.1vw, 0.82rem); color: var(--text-body); }
+    .chip-accent { color: var(--accent); border-color: var(--accent-border); background: var(--accent-dim); }
+    .gallery {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: clamp(0.6rem, 1.5vw, 1rem);
+      width: 100%;
+    }
+    .gallery-item {
+      position: relative;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border-mid);
+      background: var(--bg-card);
+      aspect-ratio: 4/3;
+    }
+    .gallery-item img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+    .gallery-caption {
+      position: absolute; left: 0; right: 0; bottom: 0;
+      background: linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0));
+      padding: 0.8rem 0.9rem 0.6rem;
+      color: var(--text-h);
+      font-size: clamp(0.7rem, 1.1vw, 0.82rem);
+      font-weight: 500;
+    }
+    .gallery-caption .em { color: var(--accent); }
+    .floating-links {
+      position: fixed;
+      top: 1.2rem; left: 1.4rem;
+      z-index: 150;
+      display: flex; gap: 0.5rem;
+      pointer-events: auto;
+    }
+    .floating-links a {
+      display: inline-flex; align-items: center; gap: 0.35rem;
+      padding: 0.35em 0.85em;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: clamp(0.65rem, 1vw, 0.78rem);
+      color: var(--text-body);
+      text-decoration: none;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+      backdrop-filter: blur(6px);
+    }
+    .floating-links a:hover {
+      background: var(--accent-dim);
+      border-color: var(--accent-border);
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="canvas-bg" style="position:fixed;inset:0;z-index:0;pointer-events:none;"></canvas>
+<div id="progress"></div>
+<nav id="nav-dots" aria-label="슬라이드 네비게이션"></nav>
+<div id="slide-counter"></div>
+<div id="key-hint"><kbd>←</kbd><kbd>→</kbd> 또는 <kbd>Space</kbd>로 이동</div>
+<div class="floating-links">
+  <a href="https://github.com/bckim0123-lab/medical_CMUX" target="_blank" rel="noopener noreferrer">⌘ GitHub</a>
+  <a href="https://medical-cmux.vercel.app/" target="_blank" rel="noopener noreferrer">▸ Live</a>
+</div>
+
+
+<!-- ════════ 1. COVER ════════ -->
+<section class="slide" id="slide-1">
+  <div class="slide-inner layout-center">
+    <div class="badge animate">AI Hackathon 2026</div>
+    <h1 class="animate animate-delay-1">MediSim<br>Orchestrator</h1>
+    <div class="divider animate animate-delay-2"></div>
+    <p class="subtitle animate animate-delay-3">
+      다중 AI 에이전트가 자율 분석하는 <span class="em">서울시 필수 의료 공백</span><br>
+      — 정책 제언 리포트 발행까지 8분
+    </p>
+    <p class="muted animate animate-delay-4">slack: bckim0123-lab/medical_CMUX</p>
+  </div>
+</section>
+
+
+<!-- ════════ 2. PROBLEM ════════ -->
+<section class="slide" id="slide-2">
+  <div class="slide-inner layout-split">
+    <div class="animate">
+      <div class="badge">Problem</div>
+      <h2>골든타임 너머의 영유아 의료 공백</h2>
+      <div class="divider"></div>
+      <p>소아청소년과 의원은 강남·송파·서초에 몰려있고, 외곽 자치구는 1.5km 도보 접근 가능한 의원이 없는 동이 다수.</p>
+      <p>그러나 <span class="em">"어디에 어떤 정책이 가장 효과적인가"</span> 는 보건복지부 회의가 며칠씩 걸리는 문제.</p>
+    </div>
+    <div class="animate animate-delay-2">
+      <div class="card card-accent">
+        <p class="muted" style="font-size:0.78rem; margin-bottom:0.4rem;">💡 우리의 가설</p>
+        <p style="margin:0;">사람이 데이터를 만지는 대신 <span class="em">AI 에이전트들이 협업</span>해 분석부터 정책 발행까지 자동화한다. 8분.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ════════ 3. SOLUTION — 5 AGENTS ════════ -->
+<section class="slide" id="slide-3">
+  <div class="slide-inner layout-left">
+    <div class="animate">
+      <div class="badge">Solution</div>
+      <h2>5 에이전트 자율 오케스트레이션</h2>
+      <div class="divider"></div>
+    </div>
+    <div class="step-flow animate animate-delay-1">
+      <div class="step-item"><div class="step-num">1</div><div class="step-body">
+        <h3>Data Agent</h3>
+        <p>Gemini Function Calling 으로 <code>fetch_hira_api</code>, <code>fetch_kosis_api</code> 자율 호출</p>
+      </div></div>
+      <div class="step-item"><div class="step-num">2</div><div class="step-body">
+        <h3>Spatial Agent</h3>
+        <p>Turf.js v7 — 1.5km 골든타임 버퍼 → union → 서울 영역과 차집합</p>
+      </div></div>
+      <div class="step-item"><div class="step-num">3</div><div class="step-body">
+        <h3>Policy Agent</h3>
+        <p>상위 3 자치구 × 3종 대안 (신규센터·셔틀·원격진료) = 9개 시뮬레이션</p>
+      </div></div>
+      <div class="step-item"><div class="step-num">4</div><div class="step-body">
+        <h3>Critic Agent <span class="chip chip-accent" style="margin-left:0.5rem;">NEW</span></h3>
+        <p>각 정책 안에 대한 리스크·우려 한 문장 + low/mid/high 평가</p>
+      </div></div>
+      <div class="step-item"><div class="step-num">5</div><div class="step-body">
+        <h3>Editor Agent</h3>
+        <p>위 모든 결과를 받아 B2G 표준 마크다운 정책 제언서 발행</p>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ════════ 4. DATA + STACK ════════ -->
+<section class="slide" id="slide-4">
+  <div class="slide-inner layout-left">
+    <div class="animate" style="text-align:center;">
+      <div class="badge">Data + Stack</div>
+      <h2>공공데이터 1,585 + 기술 스택</h2>
+      <div class="divider" style="margin-left:auto; margin-right:auto;"></div>
+    </div>
+    <div class="stat-grid animate animate-delay-1">
+      <div class="stat-item"><div class="stat-num">1,585</div><div class="stat-label">소아과 의원 (HIRA)</div></div>
+      <div class="stat-item"><div class="stat-num">426</div><div class="stat-label">행정동</div></div>
+      <div class="stat-item"><div class="stat-num">181k</div><div class="stat-label">영유아 0–4세 (KOSIS)</div></div>
+      <div class="stat-item"><div class="stat-num">25</div><div class="stat-label">자치구</div></div>
+      <div class="stat-item"><div class="stat-num">9</div><div class="stat-label">정책 대안</div></div>
+      <div class="stat-item"><div class="stat-num">2.5F</div><div class="stat-label">Gemini Flash</div></div>
+    </div>
+    <div class="agent-row animate animate-delay-2" style="justify-content:center; margin-top:1.4rem;">
+      <span class="chip">Next.js 16</span>
+      <span class="chip">Turf.js v7</span>
+      <span class="chip">MapLibre GL</span>
+      <span class="chip">Gemini Function Calling</span>
+      <span class="chip">SSE Streaming</span>
+      <span class="chip chip-accent">LangGraph-ready</span>
+    </div>
+  </div>
+</section>
+
+
+<!-- ════════ 5. DIFFERENTIATORS — 3 KEY FEATURES ════════ -->
+<section class="slide" id="slide-5">
+  <div class="slide-inner layout-left">
+    <div class="animate">
+      <div class="badge">Differentiators</div>
+      <h2>단순 분석 너머의 3가지</h2>
+      <div class="divider"></div>
+    </div>
+    <div class="grid-3">
+      <div class="card card-accent animate animate-delay-1">
+        <h3>💬 공공데이터 챗봇</h3>
+        <p style="font-size:clamp(0.78rem,1.3vw,0.92rem);">Gemini Function Calling 으로 자치구 비교·정책 효과 자연어 질의. <span class="em">의학적 조언 거부</span> + 가능한 질문 예시 제시.</p>
+      </div>
+      <div class="card card-accent animate animate-delay-2">
+        <h3>🎯 What-if 시뮬레이터</h3>
+        <p style="font-size:clamp(0.78rem,1.3vw,0.92rem);">정책 카드 클릭 → 가상 시설 1개 추가 → <span class="em">지도에서 빨강 영역 즉시 줄어듦</span>. 심사위원 직접 만지기.</p>
+      </div>
+      <div class="card card-accent animate animate-delay-3">
+        <h3>🤔 Critic Agent</h3>
+        <p style="font-size:clamp(0.78rem,1.3vw,0.92rem);">자기 안에 반론을 단다 — 각 정책에 리스크 + severity. <span class="em">의사결정자가 통째로 신뢰 못 하니까.</span></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ════════ 6. RESULT ════════ -->
+<section class="slide" id="slide-6">
+  <div class="slide-inner layout-split">
+    <div class="animate">
+      <div class="badge">Insight</div>
+      <h2>은평·중랑·도봉 — 외곽 3중 취약</h2>
+      <div class="divider"></div>
+      <ul class="list">
+        <li>종합 위험도 <span class="em">High</span> · 취약 면적 542.7㎢ / 1,123.8㎢ (48.3%)</li>
+        <li>Top 3 자치구 영유아 미커버: 은평 34% / 중랑 25% / 도봉 19%</li>
+        <li>9개 정책 대안 — 은평구 신규센터 1개소 +41% 커버리지 회복</li>
+        <li>Critic 의 <code>high</code> severity 정책 즉시 재검토 trigger</li>
+      </ul>
+    </div>
+    <div class="animate animate-delay-2">
+      <div class="card">
+        <p class="muted" style="font-size:0.76rem; margin-bottom:0.6rem;">📄 Editor Agent 발행</p>
+        <p style="font-size:clamp(0.8rem,1.3vw,0.95rem); margin-bottom:0.5rem;"><span class="em">B2G 표준 마크다운 정책 제언서</span></p>
+        <p style="font-size:clamp(0.76rem,1.2vw,0.88rem); color:var(--text-muted); margin:0;">
+          분석 개요 / 공간 취약성 / 우선순위 자치구 / 정책 대안 비교표 / Critic 검토 / 권고
+        </p>
+      </div>
+      <div class="card" style="margin-top:1rem;">
+        <p style="font-size:clamp(0.78rem,1.2vw,0.9rem); margin:0;">"보건복지부 회의가 며칠씩 걸리는 일을 <span class="em">8분에</span>."</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ════════ 7. DEMO GALLERY ════════ -->
+<section class="slide" id="slide-7">
+  <div class="slide-inner layout-left">
+    <div class="animate" style="text-align:center;">
+      <div class="badge">Demo Gallery</div>
+      <h2>5초 만에 보는 시연 흐름</h2>
+      <div class="divider" style="margin-left:auto; margin-right:auto;"></div>
+    </div>
+    <div class="gallery animate animate-delay-1">
+      <div class="gallery-item">
+        <img src="screens/01-splash.png" alt="splash">
+        <div class="gallery-caption">① <span class="em">진입 화면</span> — 5 에이전트 칩 + 인트로 splash</div>
+      </div>
+      <div class="gallery-item">
+        <img src="screens/02-analysis-complete.png" alt="analysis">
+        <div class="gallery-caption">② <span class="em">분석 완료</span> — 자치구 choropleth + 정책 카드 9개</div>
+      </div>
+      <div class="gallery-item">
+        <img src="screens/03-whatif.png" alt="whatif">
+        <div class="gallery-caption">③ <span class="em">What-if 시뮬</span> — 가상 시설 마커 + 새 buffer</div>
+      </div>
+      <div class="gallery-item">
+        <img src="screens/04-chatbot.png" alt="chatbot">
+        <div class="gallery-caption">④ <span class="em">공공데이터 Q&A</span> — Gemini Function Calling + 출처 인용</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ════════ 8. LIVE LINK ════════ -->
+<section class="slide" id="slide-8">
+  <div class="slide-inner layout-center">
+    <div class="badge animate">Live</div>
+    <h2 class="animate animate-delay-1">직접 만져보세요</h2>
+    <div class="divider animate animate-delay-2"></div>
+    <p class="subtitle animate animate-delay-3" style="margin-bottom:0.8rem;">
+      분석 시작 → 5 에이전트 흐름 → 9 정책 카드 → What-if 시뮬 → Q&A 챗봇
+    </p>
+    <div class="agent-row animate animate-delay-4" style="justify-content:center; gap:0.7rem; margin-top:0.8rem;">
+      <a class="demo-link-btn" href="https://medical-cmux.vercel.app/" target="_blank" rel="noopener">
+        🚀 medical-cmux.vercel.app
+      </a>
+      <a class="demo-link-btn" href="https://github.com/bckim0123-lab/medical_CMUX" target="_blank" rel="noopener" style="background:var(--bg-card); color:var(--text-body); border-color:var(--border-mid);">
+        ⌘ GitHub bckim0123-lab/medical_CMUX
+      </a>
+    </div>
+    <p class="muted animate animate-delay-4" style="margin-top:1.4rem; font-size:0.78rem;">
+      Vercel 라이브 · 첫 분석 약 25초 (1,585개 의원 buffer union)
+    </p>
+  </div>
+</section>
+
+
+<!-- ════════ 9. EXTENSIBILITY ════════ -->
+<section class="slide" id="slide-9">
+  <div class="slide-inner layout-split">
+    <div class="animate">
+      <div class="badge">Future</div>
+      <h2>전국 시군구 250개로</h2>
+      <div class="divider"></div>
+      <p>현재 서울 25개. 같은 파이프라인을 <span class="em">전국 250개 시군구</span> 에 자동 적용 가능. fixture/Mock 분기로 API rate limit 우회.</p>
+    </div>
+    <div class="animate animate-delay-2">
+      <ul class="list">
+        <li><span class="em">LangGraph</span> 업그레이드 — Agent 인터페이스가 StateGraph 시그니처와 동형, orchestrator 1파일 교체</li>
+        <li>분기·병렬·재시도·human-in-the-loop checkpoint</li>
+        <li>약국·진료시간 API 추가 → 야간/주말 공백 차원</li>
+        <li>Multi-region 비교 모드 (마포 vs 송파)</li>
+        <li>지자체 담당자용 RBAC + 정책 승인 워크플로우</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+
+<!-- ════════ 10. CLOSING ════════ -->
+<section class="slide" id="slide-10">
+  <div class="slide-inner layout-center">
+    <h1 class="animate" style="font-size:clamp(2.5rem,7vw,5rem);">감사합니다</h1>
+    <div class="divider animate animate-delay-1"></div>
+    <p class="subtitle animate animate-delay-2">
+      <span class="em">Multi-agent orchestration</span> for B2G public-health policy
+    </p>
+    <div class="agent-row animate animate-delay-3" style="justify-content:center; gap:0.8rem; flex-wrap:wrap;">
+      <a class="chip" href="https://github.com/bckim0123-lab/medical_CMUX" target="_blank" rel="noopener noreferrer" style="text-decoration:none;">
+        ⌘ github.com/bckim0123-lab/medical_CMUX
+      </a>
+      <a class="chip chip-accent" href="https://medical-cmux.vercel.app/" target="_blank" rel="noopener noreferrer" style="text-decoration:none;">
+        ▸ medical-cmux.vercel.app
+      </a>
+    </div>
+    <p class="muted animate animate-delay-4" style="margin-top:1.2rem;">질문·피드백 환영합니다.</p>
+  </div>
+</section>
+
+
+<script>
+const PARTICLE_ENABLED = true;
+const PARTICLE_COUNT   = 50;
+const accentHex = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim().replace(/\s/g,'') || '#38bdf8';
+function hexToRgb(hex) { const h = hex.startsWith('#') ? hex.slice(1) : hex; return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)].join(','); }
+const rgb = hexToRgb(accentHex);
+
+if (PARTICLE_ENABLED) {
+  const canvas = document.getElementById('canvas-bg');
+  const ctx = canvas.getContext('2d');
+  let W, H, particles = [];
+  class Dot {
+    constructor() { this.reset(); }
+    reset() { this.x = Math.random()*W; this.y = Math.random()*H; this.r = Math.random()*1.4+0.4; this.vx = (Math.random()-0.5)*0.3; this.vy = (Math.random()-0.5)*0.3; this.a = Math.random()*0.38+0.08; }
+    update() { this.x += this.vx; this.y += this.vy; if (this.x<0||this.x>W||this.y<0||this.y>H) this.reset(); }
+    draw() { ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fillStyle = `rgba(${rgb},${this.a})`; ctx.fill(); }
+  }
+  function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+  function drawLines() {
+    const maxD = 130;
+    for (let i=0; i<particles.length; i++) {
+      for (let j=i+1; j<particles.length; j++) {
+        const dx = particles[i].x - particles[j].x, dy = particles[i].y - particles[j].y, d = Math.hypot(dx, dy);
+        if (d < maxD) { ctx.beginPath(); ctx.moveTo(particles[i].x, particles[i].y); ctx.lineTo(particles[j].x, particles[j].y); ctx.strokeStyle = `rgba(${rgb},${0.07*(1-d/maxD)})`; ctx.lineWidth = 0.5; ctx.stroke(); }
+      }
+    }
+  }
+  function loop() { ctx.clearRect(0,0,W,H); particles.forEach(p => { p.update(); p.draw(); }); drawLines(); requestAnimationFrame(loop); }
+  window.addEventListener('resize', resize); resize();
+  particles = Array.from({length: PARTICLE_COUNT}, () => new Dot());
+  loop();
+}
+
+const isHorizontal = document.documentElement.dataset.direction === 'horizontal';
+const slides  = Array.from(document.querySelectorAll('.slide'));
+const navEl   = document.getElementById('nav-dots');
+const counter = document.getElementById('slide-counter');
+const progress= document.getElementById('progress');
+const keyHint = document.getElementById('key-hint');
+const total   = slides.length;
+
+slides.forEach((s, i) => {
+  const btn = document.createElement('button');
+  btn.className = 'dot';
+  btn.setAttribute('aria-label', `슬라이드 ${i+1}`);
+  btn.addEventListener('click', () => s.scrollIntoView({behavior:'smooth'}));
+  navEl.appendChild(btn);
+});
+const dots = Array.from(navEl.querySelectorAll('.dot'));
+
+function setActive(idx) {
+  dots.forEach((d, i) => d.classList.toggle('active', i===idx));
+  counter.textContent = `${idx+1} / ${total}`;
+  progress.style.width = `${((idx+1)/total)*100}%`;
+  updateNavBtns(idx);
+}
+
+const ioRoot = isHorizontal ? document.body : null;
+const io = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) setActive(slides.indexOf(e.target)); });
+}, { threshold: 0.5, root: ioRoot });
+slides.forEach(s => io.observe(s));
+
+const btnPrev = document.createElement('button');
+const btnNext = document.createElement('button');
+[btnPrev, btnNext].forEach((b, i) => { b.className = 'nav-btn'; b.setAttribute('aria-label', i === 0 ? '이전 슬라이드' : '다음 슬라이드'); });
+navEl.insertBefore(btnPrev, navEl.firstChild);
+navEl.appendChild(btnNext);
+
+function getCurSlide() {
+  return slides.findIndex(s => {
+    const r = s.getBoundingClientRect();
+    return isHorizontal
+      ? r.left >= -window.innerWidth/2 && r.left < window.innerWidth/2
+      : r.top >= -window.innerHeight/2 && r.top < window.innerHeight/2;
+  });
+}
+let canScroll = true;
+function goSlide(dir) {
+  if (!canScroll) return;
+  const cur = Math.max(0, getCurSlide());
+  const target = cur + dir;
+  if (target >= 0 && target < total) {
+    const opts = {behavior:'smooth'};
+    isHorizontal ? slides[target].scrollIntoView({...opts, block:'nearest', inline:'start'}) : slides[target].scrollIntoView(opts);
+    canScroll = false;
+    setTimeout(() => canScroll = true, 800);
+  }
+}
+function updateNavBtns(idx) { btnPrev.disabled = idx <= 0; btnNext.disabled = idx >= total - 1; }
+btnPrev.addEventListener('click', () => goSlide(-1));
+btnNext.addEventListener('click', () => goSlide(1));
+document.addEventListener('keydown', e => {
+  if (['ArrowDown','PageDown',' ','ArrowRight'].includes(e.key)) { e.preventDefault(); goSlide(1); }
+  if (['ArrowUp','PageUp','ArrowLeft'].includes(e.key)) { e.preventDefault(); goSlide(-1); }
+});
+let touchStartX = 0, touchStartY = 0;
+document.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; touchStartY = e.touches[0].clientY; }, { passive: true });
+document.addEventListener('touchend', e => {
+  const dx = touchStartX - e.changedTouches[0].clientX;
+  const dy = touchStartY - e.changedTouches[0].clientY;
+  if (isHorizontal) { if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 40) goSlide(dx > 0 ? 1 : -1); }
+  else { if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 40) goSlide(dy > 0 ? 1 : -1); }
+}, { passive: true });
+(isHorizontal ? document.documentElement : window).addEventListener('scroll', () => { keyHint.style.opacity = '0'; }, {once: true});
+setActive(0);
+
+const animObs = new IntersectionObserver(entries => { entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); }); }, { threshold: 0.2 });
+document.querySelectorAll('.animate').forEach(el => animObs.observe(el));
+</script>
+
+</body>
+</html>

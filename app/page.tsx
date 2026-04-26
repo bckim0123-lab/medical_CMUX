@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import AgentLog, { LogEntry } from '@/components/AgentLog';
 import ReportView from '@/components/ReportView';
 import ChatPanel from '@/components/ChatPanel';
+import IntroOverlay from '@/components/IntroOverlay';
 import type { MapState } from '@/components/MapView';
 import type { Hospital, CoverageResult, PolicyOption } from '@/lib/state';
 
@@ -34,6 +35,7 @@ type AgentEvent = {
 };
 
 export default function Home() {
+  const [showIntro, setShowIntro] = useState(true);
   const [region, setRegion] = useState('서울특별시');
   const [isRunning, setIsRunning] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -156,7 +158,8 @@ export default function Home() {
   }, [appendLog]);
 
   return (
-    <div className="flex flex-col h-screen bg-zinc-950">
+    <div className="relative flex flex-col h-screen bg-zinc-950">
+      {showIntro && <IntroOverlay onDismiss={() => setShowIntro(false)} />}
       <header className="flex items-center justify-between px-5 py-2.5 bg-zinc-900 border-b border-zinc-800 shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-7 h-7 bg-sky-600 rounded flex items-center justify-center text-white text-xs font-bold">M</div>
@@ -255,3 +258,4 @@ export default function Home() {
     </div>
   );
 }
+

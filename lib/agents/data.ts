@@ -2,7 +2,7 @@ import type { Agent, AgentEvent } from './index';
 import type { OrchestrationState } from '@/lib/state';
 import { fetchHiraHospitals } from '@/lib/tools/hira';
 import { fetchKosisPopulationU5, totalPopulationU5 } from '@/lib/tools/kosis';
-import { getGemini, MODEL_FAST } from '@/lib/llm/gemini';
+import { getGemini, hasGeminiKey, MODEL_FAST } from '@/lib/llm/gemini';
 import { SchemaType, type FunctionCall, type FunctionDeclaration } from '@google/generative-ai';
 
 // Real Gemini function-calling loop for Data Agent.
@@ -44,8 +44,8 @@ export const dataAgent: Agent = {
   async *run(state: OrchestrationState): AsyncGenerator<AgentEvent, Partial<OrchestrationState>, void> {
     yield { type: 'log', agent: 'data', message: `${state.region} 공공데이터 수집 시작 (HIRA + KOSIS)...` };
 
-    if (!process.env.GEMINI_API_KEY) {
-      yield { type: 'log', agent: 'data', message: 'GEMINI_API_KEY 미설정 → 직접 호출 모드' };
+    if (!hasGeminiKey()) {
+      yield { type: 'log', agent: 'data', message: 'Gemini API 키 미설정 → 직접 호출 모드' };
       return await directLoad(state);
     }
 

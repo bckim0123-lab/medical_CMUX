@@ -1,6 +1,6 @@
 import type { Agent, AgentEvent } from './index';
 import type { OrchestrationState } from '@/lib/state';
-import { getGemini, MODEL_FAST } from '@/lib/llm/gemini';
+import { getGemini, hasGeminiKey, MODEL_FAST } from '@/lib/llm/gemini';
 
 // Editor turns the orchestration state into a B2G-style markdown brief.
 // Uses Gemini if GEMINI_API_KEY is set; otherwise falls back to a deterministic
@@ -12,8 +12,8 @@ export const editorAgent: Agent = {
 
     const compact = compactState(state);
 
-    if (!process.env.GEMINI_API_KEY) {
-      yield { type: 'log', agent: 'editor', message: 'GEMINI_API_KEY 미설정 → 템플릿 렌더링' };
+    if (!hasGeminiKey()) {
+      yield { type: 'log', agent: 'editor', message: 'Gemini API 키 미설정 → 템플릿 렌더링' };
       return { report: templateReport(state) };
     }
 

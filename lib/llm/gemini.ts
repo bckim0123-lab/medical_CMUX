@@ -1,15 +1,40 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// Centralized Gemini client. Set GEMINI_API_KEY in .env.local (or Vercel env).
-// Switching models or providers happens here, not scattered through agents.
+// Centralized Gemini client. Switching models or providers happens here.
+//
+// Env var resolution accepts the canonical name plus common aliases so that
+// Vercel-side variables set under any of these names "just work":
+//   GEMINI_API_KEY (canonical) | GOOGLE_GEMINI_API_KEY | GOOGLE_API_KEY
+//   GEMINI_KEY                 | GENAI_API_KEY
 
-const apiKey = process.env.GEMINI_API_KEY;
+const GEMINI_KEY_ALIASES = [
+  'GEMINI_API_KEY',
+  'GOOGLE_GEMINI_API_KEY',
+  'GOOGLE_API_KEY',
+  'GEMINI_KEY',
+  'GENAI_API_KEY',
+];
+
+function resolveGeminiKey(): string | undefined {
+  for (const name of GEMINI_KEY_ALIASES) {
+    const v = process.env[name];
+    if (v && v.trim()) return v.trim();
+  }
+  return undefined;
+}
 
 export function getGemini() {
+  const apiKey = resolveGeminiKey();
   if (!apiKey) {
-    throw new Error('GEMINI_API_KEY is not set');
+    throw new Error(
+      `Gemini API key not set. Tried: ${GEMINI_KEY_ALIASES.join(', ')}`,
+    );
   }
   return new GoogleGenerativeAI(apiKey);
+}
+
+export function hasGeminiKey(): boolean {
+  return Boolean(resolveGeminiKey());
 }
 
 export const MODEL_FAST = 'gemini-2.5-flash';

@@ -39,12 +39,14 @@ export default function IntroOverlay({ onDismiss }: IntroOverlayProps) {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 mb-8 text-left">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-8 text-left">
           {[
             { icon: '📡', label: 'Data Agent', desc: 'HIRA · KOSIS 공공데이터 수집' },
             { icon: '🗺️', label: 'Spatial Agent', desc: '골든타임 커버리지 공간 분석' },
             { icon: '🏛️', label: 'Policy Agent', desc: '정책 시나리오 ROI 시뮬레이션' },
+            { icon: '🤔', label: 'Critic Agent', desc: '정책 안 리스크 · 심각도 평가' },
             { icon: '📝', label: 'Editor Agent', desc: 'B2G 정책 제언 보고서 생성' },
+            { icon: '💬', label: 'Q&A Chatbot', desc: '공공데이터 자연어 질의 응답' },
           ].map((a) => (
             <div key={a.label} className="flex items-start gap-2.5 bg-white/5 border border-white/10 rounded-lg p-3">
               <span className="text-xl">{a.icon}</span>
@@ -63,7 +65,7 @@ export default function IntroOverlay({ onDismiss }: IntroOverlayProps) {
           분석 시작하기 →
         </button>
         <p className="text-zinc-600 text-xs mt-3">
-          GEMINI_API_KEY 없이도 Mock 데이터로 전체 파이프라인 시연 가능
+          OpenAI Function Calling 으로 5 에이전트가 협업 · 평균 분석 25초
         </p>
       </div>
     </div>

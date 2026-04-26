@@ -1,9 +1,10 @@
-// Public-data chatbot. Gemini chat session with function-calling tools that
-// pull from the cached OrchestrationState. Every numeric answer cites a
-// source (HIRA / KOSIS / MediSim 분석). Rejects general medical questions.
+// Public-data chatbot. Tool-calling chat — OpenAI 우선, Gemini fallback.
+// 6 read-only tools 가 cached OrchestrationState 를 조회. 모든 수치 답변에
+// (HIRA / KOSIS / MediSim 분석) 출처 인용. 의학적 조언 거부.
 
 import { SchemaType, type FunctionCall, type FunctionDeclaration } from '@google/generative-ai';
-import { getGemini, hasGeminiKey, MODEL_FAST } from '@/lib/llm/gemini';
+import { getGemini, hasGeminiKey, MODEL_FAST as GEMINI_FAST } from '@/lib/llm/gemini';
+import { getOpenAI, hasOpenAIKey, OPENAI_MODEL_FAST } from '@/lib/llm/openai';
 import type { OrchestrationState, GuCoverage, PolicyOption } from '@/lib/state';
 
 const SYSTEM_INSTRUCTION = `당신은 MediSim 공공의료 데이터 어시스턴트입니다.
@@ -22,6 +23,34 @@ const SYSTEM_INSTRUCTION = `당신은 MediSim 공공의료 데이터 어시스�
 - "강남 vs 마포 비교" → compare_gus({a: "강남구", b: "마포구"})
 - "은평구 정책 대안?" → list_policy_options({gu: "은평구"})
 `;
+
+// Convert SchemaType-based Gemini declarations into OpenAI JSON-Schema tools.
+function geminiToOpenAI(t: FunctionDeclaration) {
+  function convert(p: unknown): unknown {
+    if (!p || typeof p !== 'object') return p;
+    const o = p as Record<string, unknown>;
+    const out: Record<string, unknown> = { ...o };
+    if (typeof o.type === 'string') {
+      out.type = (o.type as string).toLowerCase();
+    }
+    if (o.properties && typeof o.properties === 'object') {
+      const props = o.properties as Record<string, unknown>;
+      const outProps: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(props)) outProps[k] = convert(v);
+      out.properties = outProps;
+    }
+    if (o.items) out.items = convert(o.items);
+    return out;
+  }
+  return {
+    type: 'function' as const,
+    function: {
+      name: t.name,
+      description: t.description,
+      parameters: convert(t.parameters) as Record<string, unknown>,
+    },
+  };
+}
 
 const TOOL_DECLS: FunctionDeclaration[] = [
   {
@@ -189,10 +218,10 @@ export async function* chat(
   history: ChatMessage[],
   state: OrchestrationState | undefined,
 ): AsyncGenerator<ChatStreamEvent, void, void> {
-  if (!hasGeminiKey()) {
+  if (!hasOpenAIKey() && !hasGeminiKey()) {
     yield {
       type: 'error',
-      message: 'Gemini API 키가 설정되어 있지 않아 챗봇을 사용할 수 없어요. 분석 결과를 우측 패널에서 직접 확인해주세요.',
+      message: 'LLM API 키가 설정되어 있지 않아 챗봇을 사용할 수 없어요. 분석 결과를 우측 패널에서 직접 확인해주세요.',
     };
     return;
   }
@@ -209,44 +238,103 @@ export async function* chat(
     return;
   }
 
-  try {
-    const ai = getGemini();
-    const model = ai.getGenerativeModel({
-      model: MODEL_FAST,
-      tools: [{ functionDeclarations: TOOL_DECLS }],
-      systemInstruction: SYSTEM_INSTRUCTION,
-      generationConfig: { temperature: 0.2, maxOutputTokens: 1024 },
-    });
-
-    const chatSession = model.startChat({
-      history: history.slice(0, -1).map((m) => ({
-        role: m.role === 'user' ? 'user' : 'model',
-        parts: [{ text: m.content }],
-      })),
-    });
-
-    let res = await chatSession.sendMessage(lastUser.content);
-    let safety = 0;
-    while (safety++ < 5) {
-      const calls = res.response.functionCalls() as FunctionCall[] | undefined;
-      if (!calls || calls.length === 0) break;
-      const replies = [] as Array<{ functionResponse: { name: string; response: object } }>;
-      for (const call of calls) {
-        const args = (call.args ?? {}) as Record<string, unknown>;
-        yield { type: 'tool', name: call.name, args };
-        const result = execTool(call.name, args, state);
-        const preview = JSON.stringify(result).slice(0, 200);
-        yield { type: 'tool-result', name: call.name, resultPreview: preview };
-        replies.push({
-          functionResponse: { name: call.name, response: { result } },
-        });
-      }
-      res = await chatSession.sendMessage(replies);
+  // OpenAI 우선, 실패 시 Gemini.
+  if (hasOpenAIKey()) {
+    try {
+      yield* chatOpenAI(history, lastUser.content, state);
+      return;
+    } catch (err) {
+      yield { type: 'error', message: `OpenAI 오류 — Gemini 시도: ${msg(err)}` };
     }
-    const text = res.response.text();
-    yield { type: 'done', text };
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    yield { type: 'error', message: `Gemini 오류: ${msg}` };
   }
+  if (hasGeminiKey()) {
+    try {
+      yield* chatGemini(history, lastUser.content, state);
+      return;
+    } catch (err) {
+      yield { type: 'error', message: `Gemini 오류: ${msg(err)}` };
+    }
+  }
+}
+
+async function* chatOpenAI(
+  history: ChatMessage[],
+  userMsg: string,
+  state: OrchestrationState,
+): AsyncGenerator<ChatStreamEvent, void, void> {
+  const oa = getOpenAI();
+  const tools = TOOL_DECLS.map(geminiToOpenAI);
+  const messages: Array<Record<string, unknown>> = [
+    { role: 'system', content: SYSTEM_INSTRUCTION },
+    ...history.slice(0, -1).map((m) => ({ role: m.role, content: m.content })),
+    { role: 'user', content: userMsg },
+  ];
+
+  let safety = 0;
+  while (safety++ < 5) {
+    const res = await oa.chat.completions.create({
+      model: OPENAI_MODEL_FAST,
+      temperature: 0.2,
+      max_tokens: 1024,
+      messages: messages as never,
+      tools,
+    });
+    const m = res.choices[0].message;
+    messages.push(m as unknown as Record<string, unknown>);
+    const calls = m.tool_calls ?? [];
+    if (calls.length === 0) {
+      yield { type: 'done', text: m.content ?? '' };
+      return;
+    }
+    for (const tc of calls) {
+      if (tc.type !== 'function') continue;
+      let args: Record<string, unknown> = {};
+      try { args = JSON.parse(tc.function.arguments || '{}'); } catch { /* ignore */ }
+      yield { type: 'tool', name: tc.function.name, args };
+      const result = execTool(tc.function.name, args, state);
+      yield { type: 'tool-result', name: tc.function.name, resultPreview: JSON.stringify(result).slice(0, 200) };
+      messages.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(result) });
+    }
+  }
+  yield { type: 'done', text: '응답 횟수 한도 도달' };
+}
+
+async function* chatGemini(
+  history: ChatMessage[],
+  userMsg: string,
+  state: OrchestrationState,
+): AsyncGenerator<ChatStreamEvent, void, void> {
+  const ai = getGemini();
+  const model = ai.getGenerativeModel({
+    model: GEMINI_FAST,
+    tools: [{ functionDeclarations: TOOL_DECLS }],
+    systemInstruction: SYSTEM_INSTRUCTION,
+    generationConfig: { temperature: 0.2, maxOutputTokens: 1024 },
+  });
+  const chatSession = model.startChat({
+    history: history.slice(0, -1).map((m) => ({
+      role: m.role === 'user' ? 'user' : 'model',
+      parts: [{ text: m.content }],
+    })),
+  });
+  let res = await chatSession.sendMessage(userMsg);
+  let safety = 0;
+  while (safety++ < 5) {
+    const calls = res.response.functionCalls() as FunctionCall[] | undefined;
+    if (!calls || calls.length === 0) break;
+    const replies = [] as Array<{ functionResponse: { name: string; response: object } }>;
+    for (const call of calls) {
+      const args = (call.args ?? {}) as Record<string, unknown>;
+      yield { type: 'tool', name: call.name, args };
+      const result = execTool(call.name, args, state);
+      yield { type: 'tool-result', name: call.name, resultPreview: JSON.stringify(result).slice(0, 200) };
+      replies.push({ functionResponse: { name: call.name, response: { result } } });
+    }
+    res = await chatSession.sendMessage(replies);
+  }
+  yield { type: 'done', text: res.response.text() };
+}
+
+function msg(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }

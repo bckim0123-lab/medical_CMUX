@@ -1,7 +1,6 @@
 import type { Agent, AgentEvent } from './index';
 import type { CriticReview, OrchestrationState, PolicyOption } from '@/lib/state';
-import { getGemini, hasGeminiKey, MODEL_FAST } from '@/lib/llm/gemini';
-import { SchemaType } from '@google/generative-ai';
+import { generateText, hasAnyLlmKey } from '@/lib/llm/provider';
 
 // Critic Agent — 5번째 노드. Policy 가 만든 9개 옵션 각각에 대해 한 문장 우려와
 // severity (low/mid/high) 를 단다. 시연 메시지: "AI 가 자기 안에 반론도 단다."
@@ -24,8 +23,8 @@ export const criticAgent: Agent = {
       message: `${options.length}개 정책 안에 대한 비판적 검토 시작...`,
     };
 
-    if (!hasGeminiKey()) {
-      yield { type: 'log', agent: 'critic', message: 'Gemini 키 미설정 → 룰 베이스 검토' };
+    if (!hasAnyLlmKey()) {
+      yield { type: 'log', agent: 'critic', message: 'LLM 키 미설정 → 룰 베이스 검토' };
       const reviews = options.map(ruleBased);
       yield {
         type: 'log',
@@ -38,30 +37,6 @@ export const criticAgent: Agent = {
     yield { type: 'tool', agent: 'critic', tool: 'critique_options', args: { count: options.length } };
 
     try {
-      const ai = getGemini();
-      const model = ai.getGenerativeModel({
-        model: MODEL_FAST,
-        generationConfig: {
-          temperature: 0.3,
-          maxOutputTokens: 1024,
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: SchemaType.ARRAY,
-            items: {
-              type: SchemaType.OBJECT,
-              properties: {
-                optionId: { type: SchemaType.STRING },
-                concern: { type: SchemaType.STRING, description: '한국어 한 문장 (50자 이내) 리스크/우려' },
-                severity: { type: SchemaType.STRING, description: 'low / mid / high 중 하나' },
-              },
-              required: ['optionId', 'concern', 'severity'],
-            },
-          },
-        },
-        systemInstruction:
-          '당신은 보건 정책 비판 전문가입니다. 각 정책 옵션에 대해 1) 한국어 50자 이내의 리스크/우려 한 문장, 2) 심각도(low/mid/high)를 평가합니다. 추측 대신 옵션의 예산·대상·타입에 근거해 구체적으로 지적하세요.',
-      });
-
       const compactOptions = options.map((o) => ({
         id: o.id,
         type: o.type,
@@ -71,12 +46,18 @@ export const criticAgent: Agent = {
         costKrw: o.estimatedCostKrw,
       }));
 
-      const res = await model.generateContent(
-        `다음 정책 옵션들을 검토하세요:\n${JSON.stringify(compactOptions, null, 2)}\n\n` +
-          'optionId, concern (50자 이내 한국어 한 문장), severity 가 포함된 JSON 배열로 답변하세요.',
-      );
-      const text = res.response.text();
-      const parsed = JSON.parse(text) as Array<{ optionId: string; concern: string; severity: string }>;
+      const { text, provider } = await generateText({
+        system:
+          '당신은 보건 정책 비판 전문가입니다. 각 정책 옵션에 대해 1) 한국어 50자 이내의 리스크/우려 한 문장, 2) 심각도(low/mid/high)를 평가합니다. 추측 대신 옵션의 예산·대상·타입에 근거해 구체적으로 지적하세요. 응답은 반드시 {"reviews":[{"optionId":..., "concern":..., "severity":...}]} JSON 객체 한 개로만.',
+        prompt:
+          `다음 정책 옵션들을 검토하세요:\n${JSON.stringify(compactOptions, null, 2)}\n\n` +
+          '각 옵션마다 optionId, concern (50자 이내 한국어 한 문장), severity (low/mid/high) 가 포함된 항목을 reviews 배열로 답변하세요.',
+        temperature: 0.3,
+        maxTokens: 1024,
+        responseFormat: 'json',
+      });
+
+      const parsed = parseReviewArray(text);
       const reviews: CriticReview[] = parsed
         .filter((r) => options.some((o) => o.id === r.optionId))
         .map((r) => ({
@@ -85,7 +66,6 @@ export const criticAgent: Agent = {
           severity: normalizeSeverity(r.severity),
         }));
 
-      // Gemini가 일부만 반환했을 경우 룰 베이스로 보충
       const coveredIds = new Set(reviews.map((r) => r.optionId));
       for (const o of options) {
         if (!coveredIds.has(o.id)) reviews.push(ruleBased(o));
@@ -97,17 +77,38 @@ export const criticAgent: Agent = {
       yield {
         type: 'log',
         agent: 'critic',
-        message: `검토 ${reviews.length}건 완료 (high=${high} / mid=${mid} / low=${low})`,
+        message: `${provider} 검토 ${reviews.length}건 완료 (high=${high} / mid=${mid} / low=${low})`,
       };
       return { criticalReviews: reviews };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      yield { type: 'error', agent: 'critic', message: `Gemini 실패 — 룰 베이스 fallback: ${msg}` };
+      yield { type: 'error', agent: 'critic', message: `LLM 실패 — 룰 베이스 fallback: ${msg}` };
       const reviews = options.map(ruleBased);
       return { criticalReviews: reviews };
     }
   },
 };
+
+// 응답이 {reviews:[...]} 객체이거나 [...] 배열이거나 코드펜스 안에 있을 수 있음.
+function parseReviewArray(raw: string): Array<{ optionId: string; concern: string; severity: string }> {
+  if (!raw) return [];
+  let s = raw.trim();
+  s = s.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+  try {
+    const v = JSON.parse(s);
+    if (Array.isArray(v)) return v;
+    if (Array.isArray(v?.reviews)) return v.reviews;
+    if (Array.isArray(v?.items)) return v.items;
+    return [];
+  } catch {
+    // 배열 부분만 추출 시도
+    const m = s.match(/\[[\s\S]*\]/);
+    if (m) {
+      try { return JSON.parse(m[0]); } catch { /* fall through */ }
+    }
+    return [];
+  }
+}
 
 function normalizeSeverity(s: string): CriticReview['severity'] {
   const v = s?.toLowerCase().trim();

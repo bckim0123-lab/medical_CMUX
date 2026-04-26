@@ -51,16 +51,16 @@ function resizeToImageData(src: string, size: number): Promise<ImageData> {
   });
 }
 
-// Load all marker icons: hospital.png & clinic.png (3D buildings) + sprite fallbacks
+// Load all marker icons: hospital.svg & clinic.svg + sprite fallbacks
 async function loadAllIcons(): Promise<Record<string, ImageData>> {
   const ICON_SIZE = 64;
   const SPRITE_SIZE = 32;
   const result: Record<string, ImageData> = {};
 
-  // hospital & clinic from dedicated 3D images
+  // hospital & clinic from SVG vector icons
   const [hospitalData, clinicData] = await Promise.all([
-    resizeToImageData('/hospital.png', ICON_SIZE),
-    resizeToImageData('/clinic.png', ICON_SIZE),
+    resizeToImageData('/hospital.svg', ICON_SIZE),
+    resizeToImageData('/clinic.svg', ICON_SIZE),
   ]);
   result['icon-hospital'] = hospitalData;
   result['icon-clinic'] = clinicData;
@@ -360,12 +360,12 @@ export default function MapView({ mapState }: MapViewProps) {
         <p className="font-semibold text-zinc-100 text-[11px] mb-1">범례</p>
         <div className="flex items-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/hospital.png" alt="병원" style={{ width: 28, height: 16, objectFit: 'cover', borderRadius: 3 }} />
+          <img src="/hospital.svg" alt="병원" style={{ width: 20, height: 20, borderRadius: 4 }} />
           <span>병원</span>
         </div>
         <div className="flex items-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/clinic.png" alt="의원" style={{ width: 28, height: 16, objectFit: 'cover', borderRadius: 3 }} />
+          <img src="/clinic.svg" alt="의원" style={{ width: 20, height: 20, borderRadius: 4 }} />
           <span>의원</span>
         </div>
         <div className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-emerald-500/60 border border-emerald-500" /> 커버리지</div>

@@ -91,14 +91,18 @@ export default function MapView({ mapState }: MapViewProps) {
 
     const map = mapRef.current;
 
-    const removeIfExists = (id: string) => {
+    const removeLayerIfExists = (id: string) => {
       if (map.getLayer(id)) map.removeLayer(id);
+    };
+    const removeSourceIfExists = (id: string) => {
       if (map.getSource(id)) map.removeSource(id);
     };
 
-    // Buffer (covered area)
-    removeIfExists('buffer-fill');
-    removeIfExists('buffer-line');
+    // Buffer (covered area) — buffer-fill source는 buffer-fill / buffer-line
+    // 두 layer 가 함께 사용하므로, source 제거 전에 두 layer 를 모두 빼야 함.
+    removeLayerIfExists('buffer-fill');
+    removeLayerIfExists('buffer-line');
+    removeSourceIfExists('buffer-fill');
     if (coverage.bufferGeoJSON.features.length > 0) {
       map.addSource('buffer-fill', { type: 'geojson', data: coverage.bufferGeoJSON });
       map.addLayer({
@@ -116,9 +120,10 @@ export default function MapView({ mapState }: MapViewProps) {
     }
     setPhase('buffers');
 
-    // Vulnerable area
-    removeIfExists('vuln-fill');
-    removeIfExists('vuln-line');
+    // Vulnerable area — same source-shared-by-two-layers pattern.
+    removeLayerIfExists('vuln-fill');
+    removeLayerIfExists('vuln-line');
+    removeSourceIfExists('vuln-fill');
     if (coverage.vulnerableGeoJSON.features.length > 0) {
       map.addSource('vuln-fill', { type: 'geojson', data: coverage.vulnerableGeoJSON });
       map.addLayer(

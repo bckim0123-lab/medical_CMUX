@@ -38,9 +38,34 @@ function loadFixture(): HiraFixture {
   return fixtureCache;
 }
 
+// Vercel 측 환경변수 이름이 다양할 수 있어 alias 체인으로 첫 non-empty 채택.
+//   HIRA_HOSPITAL_INFO_KEY  ▸  hospital  ▸  HIRA_API_KEY  ▸  DATA_GO_KR_KEY
+function resolveHiraKey(): string | undefined {
+  const aliases = [
+    'HIRA_HOSPITAL_INFO_KEY',
+    'hospital',
+    'HIRA_API_KEY',
+    'DATA_GO_KR_KEY',
+  ];
+  for (const name of aliases) {
+    const v = process.env[name];
+    if (v && v.trim()) return v.trim();
+  }
+  return undefined;
+}
+
 function shouldUseRealApi(): boolean {
   if (process.env.USE_MOCK === '1') return false;
-  return Boolean(process.env.HIRA_HOSPITAL_INFO_KEY);
+  return Boolean(resolveHiraKey());
+}
+
+// 환경변수 미설정 시 시연 친화적 default 적용 (의원만 = 동네 접근성).
+function resolveClCd(): string | undefined {
+  const v = process.env.HIRA_CL_CD?.trim();
+  if (v) return v;
+  // Vercel env 에 등록 안 됐을 때 default 31 (의원). 1,800+ 건 모두 받으면
+  // buffer union 이 거의 전 영역 cover 해 데모 의미 약해짐.
+  return '31';
 }
 
 async function fetchPageFromApi(
@@ -101,7 +126,7 @@ function normalizeHospital(it: Record<string, unknown>): Hospital | null {
 
 async function fetchAllFromApi(apiKey: string): Promise<Hospital[]> {
   if (realCache) return realCache;
-  const clCd = process.env.HIRA_CL_CD?.trim() || undefined;
+  const clCd = resolveClCd();
   const numOfRows = 1000;
   const out: Hospital[] = [];
   let pageNo = 1;
@@ -131,7 +156,7 @@ export async function fetchHiraHospitals(input: FetchHiraInput = {}): Promise<Ho
 
   if (shouldUseRealApi()) {
     try {
-      list = await fetchAllFromApi(process.env.HIRA_HOSPITAL_INFO_KEY as string);
+      list = await fetchAllFromApi(resolveHiraKey() as string);
       if (list.length === 0) throw new Error('HIRA 응답 0건 — fixture로 fallback');
     } catch (err) {
       console.error('[HIRA] real API failed, fallback to fixture:', err);

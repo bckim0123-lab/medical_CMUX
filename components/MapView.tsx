@@ -287,6 +287,10 @@ export default function MapView({ mapState }: MapViewProps) {
         removeLayerIfExists('gu-line');
         removeSourceIfExists('gu-fill');
         map.addSource('gu-fill', { type: 'geojson', data: fcWithGrade });
+        // Insert choropleth below buffer layers so markers stay on top
+        const beforeChoropleth = map.getLayer('buffer-fill') ? 'buffer-fill'
+          : map.getLayer('clusters') ? 'clusters'
+          : undefined;
         map.addLayer({
           id: 'gu-fill',
           type: 'fill',
@@ -295,13 +299,17 @@ export default function MapView({ mapState }: MapViewProps) {
             'fill-color': ['match', ['get', 'riskGrade'], 'High', '#dc2626', 'Mid', '#f59e0b', 'Low', '#22c55e', 'transparent'],
             'fill-opacity': 0.35,
           },
-        });
+        }, beforeChoropleth);
         map.addLayer({
           id: 'gu-line',
           type: 'line',
           source: 'gu-fill',
           paint: { 'line-color': '#0f172a', 'line-width': 1.4, 'line-opacity': 0.55 },
-        });
+        }, beforeChoropleth);
+        // Ensure hospital markers are always the topmost layers
+        if (map.getLayer('clusters')) map.moveLayer('clusters');
+        if (map.getLayer('cluster-count')) map.moveLayer('cluster-count');
+        if (map.getLayer('hospitals')) map.moveLayer('hospitals');
       })
       .catch(() => { /* choropleth 없이도 시연 가능 */ });
     return () => { cancelled = true; };

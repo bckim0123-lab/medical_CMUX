@@ -7,6 +7,10 @@ import type { Hospital, CoverageResult } from '@/lib/state';
 export interface MapState {
   hospitals?: Hospital[];
   coverage?: CoverageResult;
+  whatIf?: {
+    coverage: CoverageResult;
+    newFacility: { lng: number; lat: number; title: string };
+  } | null;
 }
 
 interface MapViewProps {
@@ -83,10 +87,10 @@ export default function MapView({ mapState }: MapViewProps) {
     });
   }, [ready, mapState.hospitals]);
 
-  // Render coverage GeoJSON layers
+  // Render coverage GeoJSON layers — whatIf overrides the base coverage when set
   useEffect(() => {
     if (!ready || !mapRef.current) return;
-    const coverage = mapState.coverage;
+    const coverage = mapState.whatIf?.coverage ?? mapState.coverage;
     if (!coverage) return;
 
     const map = mapRef.current;
@@ -143,7 +147,36 @@ export default function MapView({ mapState }: MapViewProps) {
       });
     }
     setPhase('risk');
-  }, [ready, mapState.coverage]);
+  }, [ready, mapState.coverage, mapState.whatIf]);
+
+  // Render the virtual facility marker for the active what-if simulation.
+  const whatIfMarkerRef = useRef<import('maplibre-gl').Marker | null>(null);
+  useEffect(() => {
+    if (!ready || !mapRef.current) return;
+    whatIfMarkerRef.current?.remove();
+    whatIfMarkerRef.current = null;
+    const wf = mapState.whatIf;
+    if (!wf) return;
+    import('maplibre-gl').then((ml) => {
+      if (!mapRef.current) return;
+      const el = document.createElement('div');
+      el.style.cssText = `
+        width:18px;height:18px;
+        background:#fbbf24;border:3px solid #fff;border-radius:50%;
+        box-shadow:0 0 14px rgba(251,191,36,.9);
+        cursor:pointer;
+      `;
+      const popup = new ml.Popup({ offset: 14, closeButton: false }).setHTML(
+        `<div style="font-size:11px;padding:5px 9px;background:#18181b;color:#f4f4f5;border-radius:4px;">
+          <b>가상 시설</b><br/><span style="color:#fbbf24">${wf.newFacility.title}</span>
+        </div>`,
+      );
+      whatIfMarkerRef.current = new ml.Marker({ element: el })
+        .setLngLat([wf.newFacility.lng, wf.newFacility.lat])
+        .setPopup(popup)
+        .addTo(mapRef.current!);
+    });
+  }, [ready, mapState.whatIf]);
 
   const PHASE_INFO: Partial<Record<PhaseLabel, { label: string; color: string }>> = {
     hospitals: { label: '의료기관 마커 표시', color: 'bg-sky-500' },
@@ -171,6 +204,9 @@ export default function MapView({ mapState }: MapViewProps) {
         <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-sky-400" /> 의료기관</div>
         <div className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-emerald-500/60 border border-emerald-500" /> 커버리지</div>
         <div className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-red-500/60 border border-red-500" /> 취약 구역</div>
+        {mapState.whatIf && (
+          <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-amber-400" /> 가상 시설</div>
+        )}
       </div>
 
       <div ref={containerRef} className="w-full h-full" />

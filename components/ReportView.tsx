@@ -2,6 +2,7 @@
 
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import PolicyCards from './PolicyCards';
 import type { CoverageResult, PolicyOption, GuCoverage } from '@/lib/state';
 
 interface ReportViewProps {
@@ -9,6 +10,11 @@ interface ReportViewProps {
   coverage: CoverageResult | null;
   optionsCount: number;
   isRunning: boolean;
+  options?: PolicyOption[];
+  activeOptionId?: string | null;
+  onApplyOption?: (opt: PolicyOption) => void;
+  onResetOption?: () => void;
+  whatIfSummary?: string | null;
 }
 
 const GRADE_BG: Record<string, string> = {
@@ -59,10 +65,33 @@ function SummaryCard({ coverage, optionsCount }: { coverage: CoverageResult; opt
   );
 }
 
-export default function ReportView({ report, coverage, optionsCount, isRunning }: ReportViewProps) {
+export default function ReportView({
+  report,
+  coverage,
+  optionsCount,
+  isRunning,
+  options = [],
+  activeOptionId = null,
+  onApplyOption,
+  onResetOption,
+  whatIfSummary,
+}: ReportViewProps) {
   return (
     <div className="flex flex-col h-full bg-zinc-900 text-zinc-100 overflow-hidden">
       {coverage && <SummaryCard coverage={coverage} optionsCount={optionsCount} />}
+      {whatIfSummary && (
+        <div className="shrink-0 border-b border-sky-800 bg-sky-950/40 px-4 py-2 text-[11px] text-sky-200">
+          {whatIfSummary}
+        </div>
+      )}
+      {options.length > 0 && onApplyOption && onResetOption && (
+        <PolicyCards
+          options={options}
+          activeOptionId={activeOptionId}
+          onApply={onApplyOption}
+          onReset={onResetOption}
+        />
+      )}
 
       <div className="flex-1 overflow-y-auto p-4">
         {!coverage && !isRunning && (

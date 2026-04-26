@@ -37,7 +37,7 @@ export const policyAgent: Agent = {
         type: 'NewCenter',
         title: `${target.gu} 신규 소아 진료센터 신설`,
         targetGu: target.gu,
-        location: estimateCenterLocation(target.gu),
+        location: estimateCenterLocation(target.gu, 'NewCenter'),
         expectedCoverageGainPct: baseGain,
         estimatedCostKrw: NEW_CENTER_COST,
         rationale: `${target.gu} 영유아 ${target.populationU5.toLocaleString()}명 중 ${target.uncoveredPopulationU5.toLocaleString()}명(${(target.uncoveredRatio * 100).toFixed(0)}%)이 골든타임 반경 외. 신규 센터 1개소 설치 시 인접 동 커버리지 약 ${baseGain}% 회복 예상.`,
@@ -48,7 +48,7 @@ export const policyAgent: Agent = {
         type: 'ShuttleLink',
         title: `${target.gu} 보건소-거점병원 셔틀 운영`,
         targetGu: target.gu,
-        location: estimateCenterLocation(target.gu),
+        location: estimateCenterLocation(target.gu, 'ShuttleLink'),
         expectedCoverageGainPct: Math.round(baseGain * 0.55),
         estimatedCostKrw: SHUTTLE_COST,
         rationale: `신규 인프라 없이 기존 거점병원과 보건소를 연계하는 셔틀로 ${target.gu} 우선 동의 접근성 보강. 신축 대비 ROI 7배 추정.`,
@@ -59,7 +59,7 @@ export const policyAgent: Agent = {
         type: 'TelemedHub',
         title: `${target.gu} 원격진료 허브 구축`,
         targetGu: target.gu,
-        location: estimateCenterLocation(target.gu),
+        location: estimateCenterLocation(target.gu, 'TelemedHub'),
         expectedCoverageGainPct: Math.round(baseGain * 0.7),
         estimatedCostKrw: TELEMED_COST,
         rationale: `보건소 1곳에 비대면 진료 키트와 소아과 연결망 구축. 야간·주말 응급 대응 공백 해소.`,
@@ -75,7 +75,7 @@ export const policyAgent: Agent = {
   },
 };
 
-function estimateCenterLocation(gu: string): [number, number] {
+function estimateCenterLocation(gu: string, optionType?: 'NewCenter' | 'ShuttleLink' | 'TelemedHub'): [number, number] {
   // Lookup table of 25 자치구 centroids (matches data/mock fixture seeds).
   const t: Record<string, [number, number]> = {
     강남구: [127.0473, 37.5172], 강동구: [127.1238, 37.5301], 강북구: [127.0254, 37.6396],
@@ -88,5 +88,24 @@ function estimateCenterLocation(gu: string): [number, number] {
     은평구: [126.9290, 37.6027], 종로구: [126.9788, 37.5729], 중구: [126.9979, 37.5640],
     중랑구: [127.0926, 37.6063],
   };
-  return t[gu] ?? [126.978, 37.5665];
+  const c = t[gu] ?? [126.978, 37.5665];
+  // Push the proposed facility ~2.5km outward toward the district fringe so
+  // a what-if simulation produces visible coverage gain. Direction is
+  // deterministic per (gu, optionType) so different options for the same
+  // 자치구 land in different spots — visually distinguishable on the map.
+  const shiftKm = 2.5;
+  const seed = simpleHash(gu + (optionType ?? ''));
+  const angle = (seed % 360) * (Math.PI / 180);
+  const dLat = (shiftKm * Math.sin(angle)) / 111;
+  const dLng = (shiftKm * Math.cos(angle)) / (111 * Math.cos((c[1] * Math.PI) / 180));
+  return [+(c[0] + dLng).toFixed(6), +(c[1] + dLat).toFixed(6)];
+}
+
+function simpleHash(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return Math.abs(h);
 }

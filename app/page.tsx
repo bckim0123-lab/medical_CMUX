@@ -43,6 +43,9 @@ export default function Home() {
   const [report, setReport] = useState('');
   const [leftTab, setLeftTab] = useState<LeftTab>('log');
   const [hasAnalysis, setHasAnalysis] = useState(false);
+  const [options, setOptions] = useState<PolicyOption[]>([]);
+  const [activeOptionId, setActiveOptionId] = useState<string | null>(null);
+  const [whatIfSummary, setWhatIfSummary] = useState<string | null>(null);
   const esRef = useRef<EventSource | null>(null);
   const sessionId = useMemo(() => `s-${Math.random().toString(36).slice(2, 10)}`, []);
 
@@ -56,6 +59,9 @@ export default function Home() {
     setLogs([]);
     setMapState({});
     setCoverage(null);
+    setOptions([]);
+    setActiveOptionId(null);
+    setWhatIfSummary(null);
     setOptionsCount(0);
     setReport('');
 
@@ -85,6 +91,7 @@ export default function Home() {
         }
         if (evt.patch?.options?.length) {
           setOptionsCount(evt.patch.options.length);
+          setOptions(evt.patch.options);
         }
         if (evt.patch?.report) {
           setReport(evt.patch.report);
@@ -95,7 +102,10 @@ export default function Home() {
         const s = evt.state;
         if (s?.hospitals?.length) setMapState((prev) => ({ ...prev, hospitals: s.hospitals }));
         if (s?.coverage) { setMapState((prev) => ({ ...prev, coverage: s.coverage })); setCoverage(s.coverage!); }
-        if (s?.options?.length) setOptionsCount(s.options.length);
+        if (s?.options?.length) {
+          setOptionsCount(s.options.length);
+          setOptions(s.options);
+        }
         if (s?.report) setReport(s.report);
         appendLog({ tag: 'done', text: '오케스트레이션 완료 — Q&A 탭에서 추가 질문 가능', kind: 'done' });
         setHasAnalysis(true);
@@ -114,6 +124,35 @@ export default function Home() {
     esRef.current?.close();
     setIsRunning(false);
     appendLog({ tag: 'orchestrator', text: '분석이 중지되었습니다.', kind: 'error' });
+  }, [appendLog]);
+
+  const applyOption = useCallback(
+    async (opt: PolicyOption) => {
+      if (!coverage) return;
+      const { simulatePolicyOption } = await import('@/lib/simulation/what-if');
+      const result = simulatePolicyOption(coverage, opt);
+      if (!result) return;
+      setMapState((prev) => ({
+        ...prev,
+        whatIf: { coverage: result.coverage, newFacility: result.newFacility },
+      }));
+      setActiveOptionId(opt.id);
+      const summary = `${opt.title} 적용 시: 취약 면적 ${result.delta.beforeAreaKm2.toFixed(1)}㎢ → ${result.delta.afterAreaKm2.toFixed(1)}㎢ (-${result.delta.reducedAreaKm2.toFixed(1)}㎢, ${result.delta.reducedPct.toFixed(1)}% 감소)`;
+      setWhatIfSummary(summary);
+      appendLog({
+        tag: 'simulation',
+        text: summary,
+        kind: 'tool',
+      });
+    },
+    [coverage, appendLog],
+  );
+
+  const resetOption = useCallback(() => {
+    setMapState((prev) => ({ ...prev, whatIf: null }));
+    setActiveOptionId(null);
+    setWhatIfSummary(null);
+    appendLog({ tag: 'simulation', text: '시뮬 해제 — 기본 분석 결과로 복귀', kind: 'log' });
   }, [appendLog]);
 
   return (
@@ -190,6 +229,11 @@ export default function Home() {
             coverage={coverage}
             optionsCount={optionsCount}
             isRunning={isRunning}
+            options={options}
+            activeOptionId={activeOptionId}
+            onApplyOption={applyOption}
+            onResetOption={resetOption}
+            whatIfSummary={whatIfSummary}
           />
         </div>
       </div>

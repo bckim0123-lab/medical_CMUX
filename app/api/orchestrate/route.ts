@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 // Frontend connects with EventSource('/api/orchestrate?region=마포구').
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const region = url.searchParams.get('region') ?? '마포구';
+  const region = url.searchParams.get('region') ?? '서울특별시';
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({

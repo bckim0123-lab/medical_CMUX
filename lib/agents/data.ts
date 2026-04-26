@@ -6,7 +6,7 @@ import type { OrchestrationState } from '@/lib/state';
 export const dataAgent: Agent = {
   name: 'data',
   async *run(state: OrchestrationState): AsyncGenerator<AgentEvent, Partial<OrchestrationState>, void> {
-    yield { type: 'log', agent: 'data', message: `${state.region} 공공데이터 수집 시작...` };
+    yield { type: 'log', agent: 'data', message: `${state.region} 공공데이터 수집 시작 (HIRA + KOSIS)...` };
     // placeholder — replaced in Phase 1
     yield { type: 'log', agent: 'data', message: 'Mock fixture 로드됨' };
     return { hospitals: [], population: [] };

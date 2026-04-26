@@ -11,7 +11,7 @@ type AgentEvent = {
 };
 
 export default function Home() {
-  const [region, setRegion] = useState('마포구');
+  const [region, setRegion] = useState('서울특별시');
   const [events, setEvents] = useState<AgentEvent[]>([]);
   const [report, setReport] = useState<string>('');
   const [running, setRunning] = useState(false);

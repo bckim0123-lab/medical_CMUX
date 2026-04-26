@@ -219,8 +219,23 @@ export default function Home() {
           )}
         </div>
 
-        <div className="w-[40%] border-r border-zinc-800 overflow-hidden">
+        <div className="relative w-[40%] border-r border-zinc-800 overflow-hidden">
           <MapView mapState={mapState} />
+          {!hasAnalysis && !isRunning && (
+            <div className="absolute inset-0 z-20 bg-zinc-950/85 backdrop-blur-sm flex flex-col items-center justify-center px-6">
+              <img
+                src="/medi-splash.png"
+                alt="MediSim Orchestrator"
+                className="w-full max-w-md rounded-lg shadow-2xl border border-zinc-800"
+              />
+              <p className="mt-5 text-zinc-100 font-semibold text-sm tracking-wide">
+                다중 AI 에이전트가 분석하는 서울시 필수 의료 공백
+              </p>
+              <p className="mt-1 text-zinc-400 text-xs">
+                좌측 "분석 시작"을 누르면 5개 에이전트가 협업을 시작합니다.
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="w-[30%] overflow-hidden flex flex-col">

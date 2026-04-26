@@ -6,9 +6,10 @@ import type { Agent, AgentEvent } from '@/lib/agents';
 import { dataAgent } from '@/lib/agents/data';
 import { spatialAgent } from '@/lib/agents/spatial';
 import { policyAgent } from '@/lib/agents/policy';
+import { criticAgent } from '@/lib/agents/critic';
 import { editorAgent } from '@/lib/agents/editor';
 
-const PIPELINE: Agent[] = [dataAgent, spatialAgent, policyAgent, editorAgent];
+const PIPELINE: Agent[] = [dataAgent, spatialAgent, policyAgent, criticAgent, editorAgent];
 
 export async function* orchestrate(
   region: string,

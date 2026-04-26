@@ -3,7 +3,7 @@
 
 import type { OrchestrationState } from '@/lib/state';
 
-export type AgentName = 'data' | 'spatial' | 'policy' | 'editor';
+export type AgentName = 'data' | 'spatial' | 'policy' | 'critic' | 'editor';
 
 export type AgentEvent =
   | { type: 'log'; agent: AgentName; message: string }

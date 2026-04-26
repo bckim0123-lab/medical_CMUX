@@ -149,6 +149,73 @@ export default function MapView({ mapState }: MapViewProps) {
     setPhase('risk');
   }, [ready, mapState.coverage, mapState.whatIf]);
 
+  // Choropleth — fill 25 자치구 polygons by riskGrade from coverage.byGu.
+  useEffect(() => {
+    if (!ready || !mapRef.current) return;
+    const map = mapRef.current;
+    const coverage = mapState.whatIf?.coverage ?? mapState.coverage;
+    if (!coverage) return;
+
+    const removeLayerIfExists = (id: string) => {
+      if (map.getLayer(id)) map.removeLayer(id);
+    };
+    const removeSourceIfExists = (id: string) => {
+      if (map.getSource(id)) map.removeSource(id);
+    };
+
+    let cancelled = false;
+    fetch('/seoul_gu.geojson')
+      .then((r) => r.json())
+      .then((geo: GeoJSON.FeatureCollection) => {
+        if (cancelled || !mapRef.current) return;
+        const gradeByGu = new Map<string, 'High' | 'Mid' | 'Low'>(
+          coverage.byGu.map((g) => [g.gu, g.riskGrade]),
+        );
+        // Inject riskGrade into each feature so the fill expression can read it.
+        const featuresWithGrade: GeoJSON.Feature[] = geo.features.map((f) => {
+          const name = (f.properties as { name?: string } | null)?.name ?? '';
+          const grade = gradeByGu.get(name) ?? 'none';
+          return { ...f, properties: { ...f.properties, name, riskGrade: grade } };
+        });
+        const fcWithGrade: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: featuresWithGrade };
+
+        removeLayerIfExists('gu-fill');
+        removeLayerIfExists('gu-line');
+        removeSourceIfExists('gu-fill');
+        map.addSource('gu-fill', { type: 'geojson', data: fcWithGrade });
+        // Choropleth on top of vuln/buffer overlays so 자치구 색상이 주된
+        // 시각 신호가 됨. 마커는 별도 DOM 요소라 layer order 영향 없음.
+        map.addLayer({
+          id: 'gu-fill',
+          type: 'fill',
+          source: 'gu-fill',
+          paint: {
+            'fill-color': [
+              'match',
+              ['get', 'riskGrade'],
+              'High', '#dc2626',
+              'Mid', '#f59e0b',
+              'Low', '#22c55e',
+              'transparent',
+            ],
+            'fill-opacity': 0.35,
+          },
+        });
+        map.addLayer({
+          id: 'gu-line',
+          type: 'line',
+          source: 'gu-fill',
+          paint: { 'line-color': '#0f172a', 'line-width': 1.4, 'line-opacity': 0.55 },
+        });
+      })
+      .catch(() => {
+        // GeoJSON 로드 실패는 무시 (choropleth 없이도 시연 가능)
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, mapState.coverage, mapState.whatIf]);
+
   // Render the virtual facility marker for the active what-if simulation.
   const whatIfMarkerRef = useRef<import('maplibre-gl').Marker | null>(null);
   useEffect(() => {
@@ -204,8 +271,14 @@ export default function MapView({ mapState }: MapViewProps) {
         <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-sky-400" /> 의료기관</div>
         <div className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-emerald-500/60 border border-emerald-500" /> 커버리지</div>
         <div className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-red-500/60 border border-red-500" /> 취약 구역</div>
+        <div className="border-t border-zinc-700 pt-1 mt-1">
+          <p className="text-[10px] text-zinc-500 mb-1">자치구 위험도</p>
+          <div className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-red-600/40 border border-red-700" /> High</div>
+          <div className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-amber-500/40 border border-amber-600" /> Mid</div>
+          <div className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-emerald-500/40 border border-emerald-600" /> Low</div>
+        </div>
         {mapState.whatIf && (
-          <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-full bg-amber-400" /> 가상 시설</div>
+          <div className="flex items-center gap-2 border-t border-zinc-700 pt-1 mt-1"><span className="w-3 h-3 rounded-full bg-amber-400" /> 가상 시설</div>
         )}
       </div>
 

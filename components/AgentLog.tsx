@@ -21,9 +21,11 @@ const TAG_COLOR: Record<string, string> = {
   data: 'text-sky-400',
   spatial: 'text-emerald-400',
   policy: 'text-yellow-400',
+  critic: 'text-purple-400',
   editor: 'text-orange-400',
   done: 'text-emerald-300',
   error: 'text-red-400',
+  simulation: 'text-fuchsia-400',
 };
 
 const KIND_COLOR: Record<string, string> = {
@@ -71,7 +73,7 @@ export default function AgentLog({ logs, isRunning, region, onRegionChange, onSt
           </button>
         </div>
         <div className="flex gap-2 mt-2 flex-wrap">
-          {(['data', 'spatial', 'policy', 'editor'] as const).map((a) => (
+          {(['data', 'spatial', 'policy', 'critic', 'editor'] as const).map((a) => (
             <span key={a} className={`text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 ${TAG_COLOR[a]}`}>
               {a}
             </span>
@@ -81,7 +83,7 @@ export default function AgentLog({ logs, isRunning, region, onRegionChange, onSt
 
       <div className="flex-1 overflow-y-auto p-3 font-mono text-xs leading-5 space-y-0.5">
         {logs.length === 0 ? (
-          <p className="text-zinc-600 mt-6 text-center">"분석 시작"을 누르면 4개 에이전트의<br />작업 로그가 실시간으로 흐릅니다.</p>
+          <p className="text-zinc-600 mt-6 text-center">"분석 시작"을 누르면 5개 에이전트의<br />작업 로그가 실시간으로 흐릅니다.</p>
         ) : (
           logs.map((l, i) => (
             <div key={i}>

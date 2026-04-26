@@ -34,9 +34,10 @@ export const editorAgent: Agent = {
         `## 입력 데이터 (JSON)\n\n\`\`\`json\n${JSON.stringify(compact, null, 2)}\n\`\`\`\n\n` +
         `## 작성 지시\n` +
         `1. 제목: "# 서울시 필수 의료(소아청소년과) 공백 분석 및 정책 제언"\n` +
-        `2. 섹션: 분석 개요 / 공간 취약성 진단 / 우선순위 자치구 / 정책 대안 비교 / 권고\n` +
+        `2. 섹션: 분석 개요 / 공간 취약성 진단 / 우선순위 자치구 / 정책 대안 비교 / Critic Agent 비판적 검토 / 권고\n` +
         `3. 정책 대안은 표로 비교 (대안명, 대상 자치구, 예상 커버리지 +%, 추정 예산).\n` +
-        `4. 마무리는 "이 보고서는 합성 데모 데이터에 기반합니다." 한 줄 면책.`;
+        `4. "Critic Agent 비판적 검토" 섹션에는 criticalReviews 의 severity 별 분류와 핵심 우려를 정리하세요.\n` +
+        `5. 마무리는 "이 보고서는 합성 데모 데이터에 기반합니다." 한 줄 면책.`;
 
       const res = await model.generateContent(prompt);
       const text = res.response.text();
@@ -78,6 +79,11 @@ function compactState(state: OrchestrationState) {
       costKrw: o.estimatedCostKrw,
       why: o.rationale,
     })),
+    criticalReviews: state.criticalReviews?.map((r) => ({
+      optionId: r.optionId,
+      severity: r.severity,
+      concern: r.concern,
+    })),
   };
 }
 
@@ -91,6 +97,8 @@ function templateReport(state: OrchestrationState): string {
   const c = state.coverage;
   const top = c?.byGu.slice(0, 3) ?? [];
   const opts = state.options ?? [];
+  const reviews = state.criticalReviews ?? [];
+  const optById = new Map(opts.map((o) => [o.id, o]));
   return [
     `# 서울시 필수 의료(소아청소년과) 공백 분석 및 정책 제언`,
     ``,
@@ -112,6 +120,20 @@ function templateReport(state: OrchestrationState): string {
     `|---|---|---|---|`,
     ...opts.map((o) => `| ${o.title} | ${o.targetGu} | +${o.expectedCoverageGainPct}% | ${(o.estimatedCostKrw / 100_000_000).toFixed(1)}억원 |`),
     ``,
+    ...(reviews.length > 0
+      ? [
+          `## Critic Agent 비판적 검토`,
+          ``,
+          `| 대안 | 심각도 | 우려 |`,
+          `|---|---|---|`,
+          ...reviews.map((r) => {
+            const o = optById.get(r.optionId);
+            const sev = r.severity === 'high' ? '🔴 high' : r.severity === 'mid' ? '🟡 mid' : '🟢 low';
+            return `| ${o?.title ?? r.optionId} | ${sev} | ${r.concern} |`;
+          }),
+          ``,
+        ]
+      : []),
     `> 이 보고서는 합성 데모 데이터에 기반합니다.`,
   ].join('\n');
 }

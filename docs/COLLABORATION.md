@@ -27,13 +27,11 @@
 - [x] **A2. What-if 시뮬레이터** (정책 카드 클릭 → 지도 변화) ⭐
 - [x] D5. demo-script.md (시연 대본)
 
-### 🚧 진행 중 (슈찌)
+### ✅ 추가 완료 (Phase 2 마무리)
 
-- [ ] **B4. 자치구 Choropleth** — 서울 25개 자치구 polygon 위험도 색상 fill
-  - GeoJSON: `https://raw.githubusercontent.com/southkorea/seoul-maps/master/kostat/2013/json/seoul_municipalities_geo_simple.json`
-  - 파일: `data/seoul_gu.geojson` 추가, `components/MapView.tsx` 새 layer
-- [ ] **C3. Critic Agent** — 5번째 에이전트, 정책 안에 대한 리스크 한 문장
-  - 파일: `lib/agents/critic.ts`, `lib/state.ts`, `lib/orchestrator.ts`, `lib/agents/editor.ts`
+- [x] **B4. 자치구 Choropleth** — 서울 25개 자치구 polygon 위험도 색상 fill
+- [x] **C3. Critic Agent** — 5번째 에이전트, 정책 안에 대한 리스크 한 문장 + severity (high/mid/low)
+- [x] **시연 splash 화면** — `public/medi-splash.png` (분석 시작 전 hero overlay)
 
 ### 📋 백로그 (팀원 픽업 가능)
 

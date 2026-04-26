@@ -50,11 +50,20 @@ export type PolicyOption = {
   rationale: string;
 };
 
+export type CriticSeverity = 'low' | 'mid' | 'high';
+
+export type CriticReview = {
+  optionId: string;
+  concern: string;
+  severity: CriticSeverity;
+};
+
 export type OrchestrationState = {
   region: string;
   hospitals?: Hospital[];
   population?: PopulationDong[];
   coverage?: CoverageResult;
   options?: PolicyOption[];
+  criticalReviews?: CriticReview[];
   report?: string;
 };

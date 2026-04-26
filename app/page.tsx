@@ -1,13 +1,16 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import AgentLog, { LogEntry } from '@/components/AgentLog';
 import ReportView from '@/components/ReportView';
+import ChatPanel from '@/components/ChatPanel';
 import type { MapState } from '@/components/MapView';
 import type { Hospital, CoverageResult, PolicyOption } from '@/lib/state';
 
 const MapView = dynamic(() => import('@/components/MapView'), { ssr: false });
+
+type LeftTab = 'log' | 'chat';
 
 type AgentEvent = {
   type: 'log' | 'tool' | 'state' | 'error' | 'done';
@@ -38,7 +41,10 @@ export default function Home() {
   const [coverage, setCoverage] = useState<CoverageResult | null>(null);
   const [optionsCount, setOptionsCount] = useState(0);
   const [report, setReport] = useState('');
+  const [leftTab, setLeftTab] = useState<LeftTab>('log');
+  const [hasAnalysis, setHasAnalysis] = useState(false);
   const esRef = useRef<EventSource | null>(null);
+  const sessionId = useMemo(() => `s-${Math.random().toString(36).slice(2, 10)}`, []);
 
   const appendLog = useCallback((entry: LogEntry) => {
     setLogs((prev) => [...prev, entry]);
@@ -53,7 +59,9 @@ export default function Home() {
     setOptionsCount(0);
     setReport('');
 
-    const es = new EventSource(`/api/orchestrate?region=${encodeURIComponent(region)}`);
+    const es = new EventSource(
+      `/api/orchestrate?region=${encodeURIComponent(region)}&sessionId=${encodeURIComponent(sessionId)}`,
+    );
     esRef.current = es;
 
     es.onmessage = (e) => {
@@ -89,7 +97,8 @@ export default function Home() {
         if (s?.coverage) { setMapState((prev) => ({ ...prev, coverage: s.coverage })); setCoverage(s.coverage!); }
         if (s?.options?.length) setOptionsCount(s.options.length);
         if (s?.report) setReport(s.report);
-        appendLog({ tag: 'done', text: '오케스트레이션 완료', kind: 'done' });
+        appendLog({ tag: 'done', text: '오케스트레이션 완료 — Q&A 탭에서 추가 질문 가능', kind: 'done' });
+        setHasAnalysis(true);
         setIsRunning(false);
         es.close();
       }
@@ -132,14 +141,43 @@ export default function Home() {
 
       <div className="flex flex-1 overflow-hidden">
         <div className="w-[30%] border-r border-zinc-800 overflow-hidden flex flex-col">
-          <AgentLog
-            logs={logs}
-            isRunning={isRunning}
-            region={region}
-            onRegionChange={setRegion}
-            onStart={handleStart}
-            onStop={handleStop}
-          />
+          <div className="flex border-b border-zinc-800 bg-zinc-900 text-xs">
+            <button
+              onClick={() => setLeftTab('log')}
+              className={`flex-1 py-2.5 text-center transition-colors ${
+                leftTab === 'log'
+                  ? 'text-zinc-100 border-b-2 border-sky-500 -mb-px'
+                  : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              에이전트 활동 로그
+            </button>
+            <button
+              onClick={() => setLeftTab('chat')}
+              className={`flex-1 py-2.5 text-center transition-colors flex items-center justify-center gap-1 ${
+                leftTab === 'chat'
+                  ? 'text-zinc-100 border-b-2 border-sky-500 -mb-px'
+                  : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              공공데이터 Q&A
+              {hasAnalysis && leftTab !== 'chat' && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              )}
+            </button>
+          </div>
+          {leftTab === 'log' ? (
+            <AgentLog
+              logs={logs}
+              isRunning={isRunning}
+              region={region}
+              onRegionChange={setRegion}
+              onStart={handleStart}
+              onStop={handleStop}
+            />
+          ) : (
+            <ChatPanel sessionId={sessionId} hasState={hasAnalysis} />
+          )}
         </div>
 
         <div className="w-[40%] border-r border-zinc-800 overflow-hidden">

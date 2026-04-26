@@ -1,25 +1,25 @@
-import { orchestrate } from '@/lib/orchestrator';
-import { DEFAULT_SESSION_ID, setOrchestrationState } from '@/lib/state-store';
+import { chat, type ChatMessage } from '@/lib/agents/chatbot';
+import { DEFAULT_SESSION_ID, getOrchestrationState } from '@/lib/state-store';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// SSE endpoint — streams agent events as `data: {json}\n\n`.
-// Frontend connects with EventSource('/api/orchestrate?region=마포구').
-export async function GET(req: Request) {
-  const url = new URL(req.url);
-  const region = url.searchParams.get('region') ?? '서울특별시';
-  const sessionId = url.searchParams.get('sessionId') ?? DEFAULT_SESSION_ID;
+export async function POST(req: Request) {
+  let body: { sessionId?: string; messages?: ChatMessage[] };
+  try {
+    body = (await req.json()) as { sessionId?: string; messages?: ChatMessage[] };
+  } catch {
+    return new Response('Invalid JSON', { status: 400 });
+  }
+  const sessionId = body.sessionId ?? DEFAULT_SESSION_ID;
+  const messages = Array.isArray(body.messages) ? body.messages : [];
+  const state = getOrchestrationState(sessionId);
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        for await (const evt of orchestrate(region)) {
-          if (evt.type === 'done') {
-            // Cache the final state so /api/chat can answer questions about it.
-            setOrchestrationState(sessionId, evt.state);
-          }
+        for await (const evt of chat(messages, state)) {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(evt)}\n\n`));
         }
       } catch (err) {

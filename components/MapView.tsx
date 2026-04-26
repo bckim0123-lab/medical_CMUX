@@ -27,27 +27,24 @@ function facilityIcon(h: Hospital): string {
   return 'icon-clinic';
 }
 
-// Resize an image URL onto a SIZExSIZE canvas and return ImageData
-function resizeToImageData(src: string, size: number): Promise<ImageData> {
+// Load SVG via fetch → Blob URL to guarantee correct naturalWidth/Height on canvas
+async function svgToImageData(src: string, size: number): Promise<ImageData> {
+  const svgText = await fetch(src).then((r) => r.text());
+  const blob = new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
   return new Promise((resolve, reject) => {
-    const img = new window.Image();
-    img.src = src;
+    const img = new window.Image(size, size);
     img.onload = () => {
+      URL.revokeObjectURL(url);
       const canvas = document.createElement('canvas');
       canvas.width = size;
       canvas.height = size;
       const ctx = canvas.getContext('2d')!;
-      // White background for JPEG sources
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, size, size);
-      // Letterbox: fit image inside square preserving aspect ratio
-      const ratio = Math.min(size / img.naturalWidth, size / img.naturalHeight);
-      const w = img.naturalWidth * ratio;
-      const h = img.naturalHeight * ratio;
-      ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+      ctx.drawImage(img, 0, 0, size, size);
       resolve(ctx.getImageData(0, 0, size, size));
     };
-    img.onerror = reject;
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error(`SVG load failed: ${src}`)); };
+    img.src = url;
   });
 }
 
@@ -57,10 +54,10 @@ async function loadAllIcons(): Promise<Record<string, ImageData>> {
   const SPRITE_SIZE = 32;
   const result: Record<string, ImageData> = {};
 
-  // hospital & clinic from SVG vector icons
+  // hospital & clinic from SVG vector icons (fetch-based for reliable canvas rendering)
   const [hospitalData, clinicData] = await Promise.all([
-    resizeToImageData('/hospital.svg', ICON_SIZE),
-    resizeToImageData('/clinic.svg', ICON_SIZE),
+    svgToImageData('/hospital.svg', ICON_SIZE),
+    svgToImageData('/clinic.svg', ICON_SIZE),
   ]);
   result['icon-hospital'] = hospitalData;
   result['icon-clinic'] = clinicData;

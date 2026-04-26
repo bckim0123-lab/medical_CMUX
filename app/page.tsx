@@ -25,7 +25,8 @@ type AgentEvent = {
   agent?: string;
   message?: string;
   tool?: string;
-  patch?: { coverage?: CoverageSummary };
+  args?: Record<string, unknown>;
+  patch?: { coverage?: CoverageSummary; options?: unknown[]; report?: string };
   state?: { region: string; report?: string; coverage?: CoverageSummary; options?: unknown[] };
 };
 
@@ -61,8 +62,10 @@ export default function Home() {
     es.onmessage = (e) => {
       const evt = JSON.parse(e.data) as AgentEvent;
       setEvents((prev) => [...prev, evt]);
-      if (evt.type === 'state' && evt.patch?.coverage) {
-        setCoverage(evt.patch.coverage);
+      if (evt.type === 'state' && evt.patch) {
+        if (evt.patch.coverage) setCoverage(evt.patch.coverage);
+        if (evt.patch.options) setOptionsCount(evt.patch.options.length);
+        if (evt.patch.report) setReport(evt.patch.report);
       }
       if (evt.type === 'done') {
         setReport(evt.state?.report ?? '');
@@ -76,6 +79,13 @@ export default function Home() {
       setRunning(false);
       es.close();
     };
+  };
+
+  const formatArgs = (args?: Record<string, unknown>) => {
+    if (!args) return '';
+    const entries = Object.entries(args);
+    if (entries.length === 0) return '';
+    return entries.map(([k, v]) => `${k}="${String(v)}"`).join(', ');
   };
 
   const tagColor = (type: string) => {
@@ -122,14 +132,29 @@ export default function Home() {
             {events.length === 0 ? (
               <p className="text-zinc-500">"분석 시작"을 누르면 4개 에이전트의 작업 로그가 여기에 실시간으로 흐릅니다.</p>
             ) : (
-              events.map((evt, i) => (
-                <div key={i} className="mb-0.5">
-                  <span className={tagColor(evt.type)}>
-                    [{evt.type === 'tool' ? `tool:${evt.tool}` : AGENT_LABEL[evt.agent ?? evt.type] ?? evt.agent ?? evt.type}]
-                  </span>{' '}
-                  <span className="text-zinc-300">{evt.message ?? evt.type}</span>
-                </div>
-              ))
+              events
+                .filter((evt) => !(evt.type === 'state' && !evt.message))
+                .map((evt, i) => {
+                  const tag =
+                    evt.type === 'tool'
+                      ? `tool:${evt.tool}`
+                      : evt.type === 'done'
+                      ? 'done'
+                      : AGENT_LABEL[evt.agent ?? ''] ?? evt.agent ?? evt.type;
+                  const text =
+                    evt.message ??
+                    (evt.type === 'tool'
+                      ? formatArgs(evt.args)
+                      : evt.type === 'done'
+                      ? '오케스트레이션 완료'
+                      : evt.type);
+                  return (
+                    <div key={i} className="mb-0.5">
+                      <span className={tagColor(evt.type)}>[{tag}]</span>{' '}
+                      <span className="text-zinc-300">{text}</span>
+                    </div>
+                  );
+                })
             )}
           </div>
         </aside>

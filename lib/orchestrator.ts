@@ -16,7 +16,6 @@ export async function* orchestrate(
   let state: OrchestrationState = { region };
 
   for (const agent of PIPELINE) {
-    yield { type: 'log', agent: agent.name, message: `[${agent.name}] start` };
     const gen = agent.run(state);
     let result = await gen.next();
     while (!result.done) {
@@ -24,7 +23,11 @@ export async function* orchestrate(
       result = await gen.next();
     }
     state = { ...state, ...result.value };
-    yield { type: 'state', agent: agent.name, patch: result.value };
+    yield {
+      type: 'state',
+      agent: agent.name,
+      patch: result.value,
+    };
   }
 
   yield { type: 'done', state };

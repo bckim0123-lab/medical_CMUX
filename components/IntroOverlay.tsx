@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Image from 'next/image';
 
 interface IntroOverlayProps {
   onDismiss: () => void;
@@ -23,20 +22,8 @@ export default function IntroOverlay({ onDismiss }: IntroOverlayProps) {
 
   return (
     <div
-      className={`absolute inset-0 z-50 flex flex-col items-center justify-center transition-opacity duration-500 ${fading ? 'opacity-0' : 'opacity-100'}`}
-      style={{ backdropFilter: 'blur(2px)' }}
+      className={`absolute inset-0 z-50 flex flex-col items-center justify-center bg-black transition-opacity duration-500 ${fading ? 'opacity-0' : 'opacity-100'}`}
     >
-      <div className="absolute inset-0">
-        <Image
-          src="/intro-bg.png"
-          alt="MediSim Orchestrator"
-          fill
-          className="object-cover"
-          priority
-        />
-        <div className="absolute inset-0 bg-black/60" />
-      </div>
-
       <div className="relative z-10 text-center px-8 max-w-2xl">
         <div className="mb-6">
           <div className="inline-flex items-center gap-2 bg-sky-500/20 border border-sky-500/40 rounded-full px-4 py-1.5 text-sky-300 text-xs font-medium mb-4">

@@ -19,43 +19,73 @@ interface MapViewProps {
 
 type Phase = 'idle' | 'hospitals' | 'buffers' | 'risk';
 
-// Map hospital name → sprite row index (0=병원, 1=의원, 2=약국, 3=보건소)
-function iconRow(h: Hospital): number {
+function facilityIcon(h: Hospital): string {
   const n = h.name;
-  if (n.includes('병원')) return 0;
-  if (n.includes('약국')) return 2;
-  if (n.includes('보건소')) return 3;
-  return 1; // 의원 (default)
+  if (n.includes('병원')) return 'icon-hospital';
+  if (n.includes('약국')) return 'icon-pharmacy';
+  if (n.includes('보건소')) return 'icon-health';
+  return 'icon-clinic';
 }
 
-function iconName(row: number) {
-  return ['icon-hospital', 'icon-clinic', 'icon-pharmacy', 'icon-health'][row];
-}
-
-// Load the sprite PNG and extract 4 square icons via canvas
-function loadSpriteIcons(): Promise<Record<string, ImageData>> {
+// Resize an image URL onto a SIZExSIZE canvas and return ImageData
+function resizeToImageData(src: string, size: number): Promise<ImageData> {
   return new Promise((resolve, reject) => {
     const img = new window.Image();
-    img.src = '/icons.png';
+    img.src = src;
     img.onload = () => {
-      const ROWS = 4;
-      const SPRITE_H = img.naturalHeight; // 166
-      const ROW_H = SPRITE_H / ROWS;      // 41.5
-      const SIZE = Math.round(ROW_H);
-      const names = ['icon-hospital', 'icon-clinic', 'icon-pharmacy', 'icon-health'];
-      const result: Record<string, ImageData> = {};
-      names.forEach((name, i) => {
-        const canvas = document.createElement('canvas');
-        canvas.width = SIZE;
-        canvas.height = SIZE;
-        const ctx = canvas.getContext('2d')!;
-        ctx.drawImage(img, 0, i * ROW_H, SIZE, ROW_H, 0, 0, SIZE, SIZE);
-        result[name] = ctx.getImageData(0, 0, SIZE, SIZE);
-      });
-      resolve(result);
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d')!;
+      // White background for JPEG sources
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, size, size);
+      // Letterbox: fit image inside square preserving aspect ratio
+      const ratio = Math.min(size / img.naturalWidth, size / img.naturalHeight);
+      const w = img.naturalWidth * ratio;
+      const h = img.naturalHeight * ratio;
+      ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+      resolve(ctx.getImageData(0, 0, size, size));
     };
     img.onerror = reject;
   });
+}
+
+// Load all marker icons: hospital.png & clinic.png (3D buildings) + sprite fallbacks
+async function loadAllIcons(): Promise<Record<string, ImageData>> {
+  const ICON_SIZE = 64;
+  const SPRITE_SIZE = 32;
+  const result: Record<string, ImageData> = {};
+
+  // hospital & clinic from dedicated 3D images
+  const [hospitalData, clinicData] = await Promise.all([
+    resizeToImageData('/hospital.png', ICON_SIZE),
+    resizeToImageData('/clinic.png', ICON_SIZE),
+  ]);
+  result['icon-hospital'] = hospitalData;
+  result['icon-clinic'] = clinicData;
+
+  // pharmacy & health-center from sprite sheet (rows 2 and 3)
+  await new Promise<void>((resolve) => {
+    const img = new window.Image();
+    img.src = '/icons.png';
+    img.onload = () => {
+      const ROW_H = img.naturalHeight / 4;
+      (['icon-pharmacy', 'icon-health'] as const).forEach((name, offset) => {
+        const row = offset + 2; // rows 2 and 3
+        const canvas = document.createElement('canvas');
+        canvas.width = SPRITE_SIZE;
+        canvas.height = SPRITE_SIZE;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, row * ROW_H, SPRITE_SIZE, ROW_H, 0, 0, SPRITE_SIZE, SPRITE_SIZE);
+        result[name] = ctx.getImageData(0, 0, SPRITE_SIZE, SPRITE_SIZE);
+      });
+      resolve();
+    };
+    img.onerror = () => resolve(); // graceful fallback
+  });
+
+  return result;
 }
 
 export default function MapView({ mapState }: MapViewProps) {
@@ -112,7 +142,7 @@ export default function MapView({ mapState }: MapViewProps) {
         const features = hospitals.map((h) => ({
           type: 'Feature' as const,
           geometry: { type: 'Point' as const, coordinates: [h.lng, h.lat] },
-          properties: { id: h.id, name: h.name, gu: h.gu, specialty: h.specialty, icon: iconName(iconRow(h)) },
+          properties: { id: h.id, name: h.name, gu: h.gu, specialty: h.specialty, icon: facilityIcon(h) },
         }));
 
         if (map.getLayer('hospitals')) map.removeLayer('hospitals');
@@ -158,7 +188,12 @@ export default function MapView({ mapState }: MapViewProps) {
           filter: ['!', ['has', 'point_count']],
           layout: {
             'icon-image': ['get', 'icon'],
-            'icon-size': 0.75,
+            'icon-size': [
+              'match', ['get', 'icon'],
+              'icon-hospital', 0.55,
+              'icon-clinic', 0.55,
+              0.85, // pharmacy/health (32px sprite)
+            ],
             'icon-allow-overlap': true,
             'icon-anchor': 'center',
           },
@@ -184,7 +219,7 @@ export default function MapView({ mapState }: MapViewProps) {
     if (iconsLoadedRef.current) {
       render({});
     } else {
-      loadSpriteIcons()
+      loadAllIcons()
         .then((iconMap) => { iconsLoadedRef.current = true; render(iconMap); })
         .catch(console.error);
     }
@@ -325,12 +360,12 @@ export default function MapView({ mapState }: MapViewProps) {
         <p className="font-semibold text-zinc-100 text-[11px] mb-1">범례</p>
         <div className="flex items-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icons.png" alt="병원" style={{ width: 18, height: 18, objectFit: 'none', objectPosition: '0 0' }} />
+          <img src="/hospital.png" alt="병원" style={{ width: 28, height: 16, objectFit: 'cover', borderRadius: 3 }} />
           <span>병원</span>
         </div>
         <div className="flex items-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icons.png" alt="의원" style={{ width: 18, height: 18, objectFit: 'none', objectPosition: '0 -41.5px' }} />
+          <img src="/clinic.png" alt="의원" style={{ width: 28, height: 16, objectFit: 'cover', borderRadius: 3 }} />
           <span>의원</span>
         </div>
         <div className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-emerald-500/60 border border-emerald-500" /> 커버리지</div>

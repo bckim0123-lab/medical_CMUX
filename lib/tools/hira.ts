@@ -63,9 +63,10 @@ function shouldUseRealApi(): boolean {
 function resolveClCd(): string | undefined {
   const v = process.env.HIRA_CL_CD?.trim();
   if (v) return v;
-  // Vercel env 에 등록 안 됐을 때 default 31 (의원). 1,800+ 건 모두 받으면
-  // buffer union 이 거의 전 영역 cover 해 데모 의미 약해짐.
-  return '31';
+  // Vercel env 에 등록 안 됐을 때 — 종별 필터를 풀어 모든 의료기관 포함.
+  // 의원 779 + 상급종합 14 (세브란스/서울대병원/아산/삼성 등) + 종합병원 28
+  // + 병원 92 + 요양 86 + 정신 1 = 1,830건. 시연에서 큰 병원도 마커로 보임.
+  return undefined;
 }
 
 async function fetchPageFromApi(

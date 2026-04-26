@@ -30,9 +30,10 @@ async function probe() {
   url.searchParams.set('ServiceKey', key);
   url.searchParams.set('_type', 'json');
   url.searchParams.set('pageNo', '1');
-  url.searchParams.set('numOfRows', '5');
+  url.searchParams.set('numOfRows', '1000');
   url.searchParams.set('sidoCd', '110000'); // 서울특별시
   url.searchParams.set('dgsbjtCd', '21');   // 소아청소년과 진료과목 코드
+  // clCd 미설정 → 전체 종별
 
   console.log('GET', url.toString().replace(key, '***'));
   const res = await fetch(url);
@@ -52,10 +53,19 @@ async function probe() {
     console.log(`\nresultCode=${resultCode}  resultMsg=${resultMsg}`);
     console.log(`totalCount=${totalCount}`);
     if (Array.isArray(items)) {
-      console.log(`\n샘플 ${items.length}건:`);
-      for (const it of items) {
-        console.log(`  - ${it.yadmNm} (${it.sidoCdNm} ${it.sgguCdNm}) [${it.XPos},${it.YPos}]`);
+      const target = items.filter((it: any) => /세브란스|연세|서울대|아산|삼성서울/.test(String(it.yadmNm ?? '')));
+      console.log(`\n매칭 ${target.length}건 (총 ${items.length}건 중):`);
+      for (const it of target) {
+        console.log(`  - ${it.yadmNm} | clCd=${it.clCd} ${it.clCdNm} | ${it.sgguCdNm}`);
       }
+      // clCd 분포
+      const byCl: Record<string, number> = {};
+      for (const it of items as any[]) {
+        const k = `${it.clCd}:${it.clCdNm}`;
+        byCl[k] = (byCl[k] ?? 0) + 1;
+      }
+      console.log('\nclCd 분포:');
+      for (const [k, v] of Object.entries(byCl)) console.log(`  ${k} = ${v}`);
     } else if (items) {
       console.log('단건:', items);
     }

@@ -77,10 +77,10 @@ export default function ReportView({
   whatIfSummary,
 }: ReportViewProps) {
   return (
-    <div className="flex flex-col h-full bg-zinc-900 text-zinc-100 overflow-hidden">
+    <div className="h-full overflow-y-auto bg-zinc-900 text-zinc-100">
       {coverage && <SummaryCard coverage={coverage} optionsCount={optionsCount} />}
       {whatIfSummary && (
-        <div className="shrink-0 border-b border-sky-800 bg-sky-950/40 px-4 py-2 text-[11px] text-sky-200">
+        <div className="border-b border-sky-800 bg-sky-950/40 px-4 py-2 text-[11px] text-sky-200">
           {whatIfSummary}
         </div>
       )}
@@ -93,7 +93,7 @@ export default function ReportView({
         />
       )}
 
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="p-4 pb-24">
         {!coverage && !isRunning && (
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500 mb-3">분석 요약</p>
